@@ -1,0 +1,111 @@
+tools:
+  - name: ping
+    description: Verify Docker engine connectivity
+    method: GET
+    path: /system/ping
+    request_schema: null
+    response_schema:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+    task_types:
+      - system-ops
+    priority: 0
+
+  - name: list-containers
+    description: List Docker containers
+    method: GET
+    path: /containers
+    request_schema: null
+    response_schema:
+      type: array
+      items:
+        type: object
+    task_types:
+      - container-ops
+    priority: 0
+
+  - name: create-container
+    description: Create a new Docker container
+    method: POST
+    path: /containers
+    request_schema:
+      type: object
+      required:
+        - image
+      properties:
+        image:
+          type: string
+        name:
+          type: string
+        environment:
+          type: object
+        ports:
+          type: object
+        volumes:
+          type: object
+        restart_policy:
+          type: string
+    response_schema:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        image:
+          type: string
+        created:
+          type: string
+    task_types:
+      - container-ops
+    priority: 0
+
+  - name: start-container
+    description: Start a Docker container
+    method: POST
+    path: /containers/{id}/start
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - container-ops
+    priority: 0
+
+  - name: stop-container
+    description: Stop a Docker container
+    method: POST
+    path: /containers/{id}/stop
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - container-ops
+    priority: 0
+
+  - name: remove-container
+    description: Remove a Docker container
+    method: DELETE
+    path: /containers/{id}
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - container-ops
+    priority: 0
+
+  - name: get-logs
+    description: Get Docker container logs
+    method: GET
+    path: /containers/{id}/logs
+    request_schema: null
+    response_schema:
+      type: string
+    task_types:
+      - container-ops
+    priority: 0

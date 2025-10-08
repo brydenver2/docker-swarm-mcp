@@ -1,0 +1,12 @@
+{
+  "task_type_allowlists": {
+    "container-ops": ["list-containers", "create-container", "start-container", "stop-container", "remove-container", "get-logs"],
+    "compose-ops": [],
+    "service-ops": [],
+    "network-ops": [],
+    "volume-ops": [],
+    "system-ops": ["ping", "info"]
+  },
+  "max_tools": 10,
+  "blocklist": ["remove-volume"]
+}

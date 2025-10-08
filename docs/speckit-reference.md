@@ -31,11 +31,5 @@
 │  checklists to validate requirements completeness,     │
 │  clarity, and consistency (after /speckit.plan)
 
-## Constitution Quick Reference
-- Containerized Determinism — ship pinned Docker images, document env/ports/volumes, and keep smoke tests green.
-- MCP Protocol Fidelity — cite the spec version, advertise capabilities, and cover handshake/tool contracts in tests.
-- Contract-First Automation — write failing tests before code and reference their commands in plans and tasks.
-- Observability & Incident Readiness — log in structured formats, expose health checks, and document incident scripts.
-- Security & Least Privilege — run as non-root, isolate secrets, and justify every external dependency.
 
 Refer back to `.specify/memory/constitution.md` whenever planning, specifying, or implementing features.
