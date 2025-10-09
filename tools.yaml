@@ -15,6 +15,26 @@ tools:
       - system-ops
     priority: 0
 
+  - name: info
+    description: Get Docker system information including version, OS, architecture, and Swarm status
+    method: GET
+    path: /system/info
+    request_schema: null
+    response_schema:
+      type: object
+      properties:
+        version:
+          type: string
+        os:
+          type: string
+        architecture:
+          type: string
+        docker_version:
+          type: string
+    task_types:
+      - system-ops
+    priority: 0
+
   - name: list-containers
     description: List Docker containers
     method: GET
@@ -108,4 +128,276 @@ tools:
       type: string
     task_types:
       - container-ops
+    priority: 0
+
+  - name: deploy-compose
+    description: Deploy a Docker Compose stack
+    method: POST
+    path: /stacks/deploy
+    request_schema:
+      type: object
+      required:
+        - project_name
+        - compose_yaml
+      properties:
+        project_name:
+          type: string
+          pattern: ^[a-z0-9-]+$
+        compose_yaml:
+          type: string
+        force_recreate:
+          type: boolean
+          default: false
+    response_schema:
+      type: object
+      properties:
+        project_name:
+          type: string
+        services:
+          type: array
+          items:
+            type: string
+        mode:
+          type: string
+        created:
+          type: string
+    task_types:
+      - compose-ops
+    priority: 0
+
+  - name: list-stacks
+    description: List Docker Compose stacks
+    method: GET
+    path: /stacks
+    request_schema: null
+    response_schema:
+      type: array
+      items:
+        type: object
+        properties:
+          project_name:
+            type: string
+          services:
+            type: array
+            items:
+              type: string
+          service_count:
+            type: integer
+    task_types:
+      - compose-ops
+    priority: 0
+
+  - name: remove-compose
+    description: Remove a Docker Compose stack
+    method: DELETE
+    path: /stacks/{project_name}
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - compose-ops
+    priority: 0
+
+  - name: list-services
+    description: List Docker Swarm services
+    method: GET
+    path: /services
+    request_schema: null
+    response_schema:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          name:
+            type: string
+          replicas:
+            type: integer
+          image:
+            type: string
+          created:
+            type: string
+          mode:
+            type: string
+    task_types:
+      - service-ops
+    priority: 0
+
+  - name: scale-service
+    description: Scale a Docker Swarm service replica count
+    method: POST
+    path: /services/{name}/scale
+    request_schema:
+      type: object
+      required:
+        - replicas
+      properties:
+        replicas:
+          type: integer
+          minimum: 0
+    response_schema:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        replicas:
+          type: integer
+        image:
+          type: string
+        created:
+          type: string
+        mode:
+          type: string
+    task_types:
+      - service-ops
+    priority: 0
+
+  - name: remove-service
+    description: Remove a Docker Swarm service
+    method: DELETE
+    path: /services/{name}
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - service-ops
+    priority: 0
+
+  - name: list-networks
+    description: List Docker networks
+    method: GET
+    path: /networks
+    request_schema: null
+    response_schema:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          name:
+            type: string
+          driver:
+            type: string
+          scope:
+            type: string
+          created:
+            type: string
+    task_types:
+      - network-ops
+    priority: 0
+
+  - name: create-network
+    description: Create a Docker network
+    method: POST
+    path: /networks
+    request_schema:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        driver:
+          type: string
+          default: bridge
+        ipam:
+          type: object
+        options:
+          type: object
+    response_schema:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        driver:
+          type: string
+        scope:
+          type: string
+        created:
+          type: string
+    task_types:
+      - network-ops
+    priority: 0
+
+  - name: remove-network
+    description: Remove a Docker network
+    method: DELETE
+    path: /networks/{id}
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - network-ops
+    priority: 0
+
+  - name: list-volumes
+    description: List Docker volumes
+    method: GET
+    path: /volumes
+    request_schema: null
+    response_schema:
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          driver:
+            type: string
+          mountpoint:
+            type: string
+          created:
+            type: string
+    task_types:
+      - volume-ops
+    priority: 0
+
+  - name: create-volume
+    description: Create a Docker volume
+    method: POST
+    path: /volumes
+    request_schema:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        driver:
+          type: string
+          default: local
+        options:
+          type: object
+        labels:
+          type: object
+    response_schema:
+      type: object
+      properties:
+        name:
+          type: string
+        driver:
+          type: string
+        mountpoint:
+          type: string
+        created:
+          type: string
+    task_types:
+      - volume-ops
+    priority: 0
+
+  - name: remove-volume
+    description: Remove a Docker volume
+    method: DELETE
+    path: /volumes/{name}
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - volume-ops
     priority: 0

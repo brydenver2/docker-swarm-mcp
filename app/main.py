@@ -1,11 +1,13 @@
 import json
 import logging
 import sys
+import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -15,8 +17,13 @@ from app.docker_client import get_docker_client
 from app.mcp.health import router as health_router
 from app.mcp.tool_gating import FilterConfig, ToolGateController
 from app.mcp.tool_registry import ToolRegistry, router as mcp_router
+from app.mcp.fastapi_mcp_integration import router as mcp_jsonrpc_router
 from app.routers.system import router as system_router
 from app.routers.containers import router as containers_router
+from app.routers.stacks import router as stacks_router
+from app.routers.services import router as services_router
+from app.routers.networks import router as networks_router
+from app.routers.volumes import router as volumes_router
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +41,41 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         sys.exit(1)
     
     tool_registry = ToolRegistry()
+    all_tools = tool_registry.get_all_tools()
     
     filter_config_path = Path("filter-config.json")
     if filter_config_path.exists():
-        with filter_config_path.open() as f:
-            filter_config_data = json.load(f)
-        filter_config = FilterConfig(**filter_config_data)
+        try:
+            with filter_config_path.open() as f:
+                filter_config_data = json.load(f)
+            filter_config = FilterConfig(**filter_config_data)
+            
+            invalid_blocklist = [
+                tool_name for tool_name in filter_config.blocklist
+                if tool_name not in all_tools
+            ]
+            if invalid_blocklist:
+                logger.warning(
+                    f"filter-config.json blocklist references non-existent tools: {invalid_blocklist}"
+                )
+            
+            for task_type, tool_names in filter_config.task_type_allowlists.items():
+                invalid_tools = [
+                    tool_name for tool_name in tool_names
+                    if tool_name not in all_tools
+                ]
+                if invalid_tools:
+                    logger.warning(
+                        f"filter-config.json task-type '{task_type}' references non-existent tools: {invalid_tools}"
+                    )
+            
+            logger.info(f"Loaded filter config with {len(filter_config.task_type_allowlists)} task types")
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in filter-config.json: {e}")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"Failed to load filter-config.json: {e}")
+            sys.exit(1)
     else:
         logger.warning("filter-config.json not found, using defaults")
         filter_config = FilterConfig(
@@ -49,13 +85,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
     
     tool_gate_controller = ToolGateController(
-        all_tools=tool_registry.get_all_tools(),
+        all_tools=all_tools,
         config=filter_config
     )
     
     app.state.docker_client = docker_client
     app.state.tool_registry = tool_registry
     app.state.tool_gate_controller = tool_gate_controller
+    
+    if "*" in settings.ALLOWED_ORIGINS:
+        logger.warning(
+            "CORS configured with wildcard origin (*). "
+            "This is insecure for production. "
+            "Set ALLOWED_ORIGINS to specific domains."
+        )
+    else:
+        logger.info(f"CORS configured with origins: {', '.join(settings.ALLOWED_ORIGINS)}")
     
     logger.info("Application startup complete")
     
@@ -79,12 +124,63 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
+    
+    start_time = time.time()
+    
+    response = await call_next(request)
+    
+    duration_ms = int((time.time() - start_time) * 1000)
+    
+    log_record = logging.LogRecord(
+        name=__name__,
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg=f"{request.method} {request.url.path}",
+        args=(),
+        exc_info=None
+    )
+    log_record.request_id = request_id
+    log_record.duration_ms = duration_ms
+    log_record.status = response.status_code
+    
+    path = request.url.path
+    if path.startswith("/containers"):
+        log_record.tool = "container-ops"
+    elif path.startswith("/stacks"):
+        log_record.tool = "compose-ops"
+    elif path.startswith("/services"):
+        log_record.tool = "service-ops"
+    elif path.startswith("/networks"):
+        log_record.tool = "network-ops"
+    elif path.startswith("/volumes"):
+        log_record.tool = "volume-ops"
+    elif path.startswith("/system"):
+        log_record.tool = "system-ops"
+    elif path.startswith("/mcp"):
+        log_record.tool = "mcp-discovery"
+    
+    logger.handle(log_record)
+    
+    return response
+
+
 register_exception_handlers(app)
 
 app.include_router(health_router, prefix="/mcp", tags=["MCP"])
 app.include_router(mcp_router, prefix="/mcp", tags=["MCP"])
+app.include_router(mcp_jsonrpc_router, prefix="/mcp/v1", tags=["MCP JSON-RPC"])
 app.include_router(system_router, prefix="/system", tags=["System"])
 app.include_router(containers_router, tags=["Containers"])
+app.include_router(stacks_router, prefix="/stacks", tags=["Stacks"])
+app.include_router(services_router, tags=["Services"])
+app.include_router(networks_router, tags=["Networks"])
+app.include_router(volumes_router, tags=["Volumes"])
 
 
 @app.get("/")

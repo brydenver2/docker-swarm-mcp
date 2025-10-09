@@ -46,6 +46,53 @@ docker build -t docker-mcp-server .
 docker-compose up -d
 ```
 
+## MCP Client Setup
+
+Once the server is running, configure your MCP client to connect:
+
+### Claude Desktop
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mcp_docker": {
+      "transport": {
+        "type": "http",
+        "url": "http://localhost:8000",
+        "headers": {
+          "Authorization": "Bearer your-secure-token-here"
+        }
+      }
+    }
+  }
+}
+```
+
+### claude-code CLI
+
+```bash
+claude-code mcp add docker \
+  --transport http \
+  --url http://localhost:8000 \
+  --header "Authorization: Bearer your-secure-token-here"
+```
+
+### Task-Type Filtering (Reduce Context)
+
+Filter tools by category to reduce context usage:
+
+```bash
+# Container operations only (6 tools)
+claude-code mcp add docker-containers \
+  --transport http \
+  --url "http://localhost:8000/mcp/tools?task-type=container-ops" \
+  --header "Authorization: Bearer your-secure-token-here"
+```
+
+**See [`docs/MCP-CLIENT-SETUP.md`](docs/MCP-CLIENT-SETUP.md) for complete configuration examples.**
+
 ## Configuration
 
 ### Environment Variables
@@ -111,7 +158,7 @@ curl -X POST -H "Authorization: Bearer your-token" \
   http://localhost:8000/containers
 ```
 
-See `docs/` for complete API documentation.
+See `docs/MCP-CLIENT-SETUP.md` for complete API usage examples.
 
 ## Development
 
@@ -165,7 +212,14 @@ export DOCKER_HOST="ssh://user@remote-host"
 export DOCKER_HOST="tcp://100.x.y.z:2376"
 ```
 
-See `docs/dependencies/tls.md`, `docs/dependencies/tailscale.md` for detailed setup.
+See `docs/dependencies/tls.md`, `docs/dependencies/tailscale.md`, `docs/dependencies/ngrok.md` for detailed setup.
+
+## Documentation
+
+- **MCP Client Setup**: `docs/MCP-CLIENT-SETUP.md` - Complete guide for configuring MCP clients (Claude Desktop, claude-code, etc.)
+- **Quick Reference**: `docs/MCP-QUICK-REFERENCE.md` - Command cheat sheet and common workflows
+- **Client Config Schema**: `docs/mcp-client-config.schema.json` - JSON schema for validation
+- **Dependencies**: `docs/dependencies/` - Reference stubs for Docker SDK, FastAPI, Pydantic, Uvicorn, Compose, Swarm, TLS, tunneling
 
 ## Architecture
 
@@ -173,8 +227,7 @@ See `docs/dependencies/tls.md`, `docs/dependencies/tailscale.md` for detailed se
 - **docker-py**: Docker SDK for Python
 - **Pydantic**: Data validation and schema generation
 - **Tool Gating**: Pluggable filter chain (TaskType → Resource → Security)
-
-See `specs/001-http-based-docker/plan.md` for complete architecture documentation.
+- **Context Optimization**: Reduces tool context from 45K+ to ≤5K tokens through task-type filtering
 
 ## License
 

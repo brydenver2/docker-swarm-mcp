@@ -1,12 +1,12 @@
 {
   "task_type_allowlists": {
     "container-ops": ["list-containers", "create-container", "start-container", "stop-container", "remove-container", "get-logs"],
-    "compose-ops": [],
-    "service-ops": [],
-    "network-ops": [],
-    "volume-ops": [],
+    "compose-ops": ["deploy-compose", "list-stacks", "remove-compose"],
+    "service-ops": ["list-services", "scale-service", "remove-service"],
+    "network-ops": ["list-networks", "create-network", "remove-network"],
+    "volume-ops": ["list-volumes", "create-volume", "remove-volume"],
     "system-ops": ["ping", "info"]
   },
   "max_tools": 10,
-  "blocklist": ["remove-volume"]
+  "blocklist": []
 }

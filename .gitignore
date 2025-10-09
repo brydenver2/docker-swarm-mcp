@@ -68,3 +68,7 @@ docker-compose.override.yml
 
 # Local codex auth and session data
 .codex/
+
+# Internal development specs (not for public distribution)
+specs/
+.specify/

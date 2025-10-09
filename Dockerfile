@@ -11,13 +11,15 @@ RUN pip install poetry==1.7.1
 
 COPY pyproject.toml ./
 RUN poetry config virtualenvs.create false && \
-    poetry install --no-dev --no-interaction --no-ansi
+    poetry install --only main --no-root --no-interaction --no-ansi
 
 COPY app/ ./app/
 COPY tools.yaml filter-config.json ./
 
 RUN useradd -m -u 1000 mcp && \
-    chown -R mcp:mcp /app
+    chown -R mcp:mcp /app && \
+    groupadd -g 999 docker && \
+    usermod -aG docker mcp
 
 USER mcp
 

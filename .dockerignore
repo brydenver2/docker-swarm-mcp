@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Testing and development
+tests/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Documentation (build docs separately if needed)
+README.md
+docs/
+
+# Internal development specs (not for public distribution)
+specs/
+.specify/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Local files
+*.log
+.codex/

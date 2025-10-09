@@ -33,3 +33,5 @@
 
 
 Refer back to `.specify/memory/constitution.md` whenever planning, specifying, or implementing features.
+
+https://opencode.ai/s/w2LZUGJw

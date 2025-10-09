@@ -24,22 +24,45 @@ class ToolRegistry:
         tools_file = Path(self.tools_yaml_path)
         
         if not tools_file.exists():
-            logger.warning(f"Tools file not found: {self.tools_yaml_path}")
-            return
+            logger.error(f"Tools file not found: {self.tools_yaml_path}")
+            raise FileNotFoundError(f"Required file not found: {self.tools_yaml_path}")
         
-        with tools_file.open() as f:
-            data = yaml.safe_load(f)
+        try:
+            with tools_file.open() as f:
+                data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            logger.error(f"Invalid YAML in {self.tools_yaml_path}: {e}")
+            raise ValueError(f"Invalid YAML in {self.tools_yaml_path}: {e}")
+        
+        if not isinstance(data, dict):
+            logger.error(f"tools.yaml must contain a dict, got {type(data)}")
+            raise ValueError("tools.yaml must contain a dict with 'tools' key")
         
         tools_list = data.get("tools", [])
         
+        if not isinstance(tools_list, list):
+            logger.error(f"'tools' key must be a list, got {type(tools_list)}")
+            raise ValueError("'tools' key in tools.yaml must be a list")
+        
+        failed_tools = []
         for tool_data in tools_list:
             try:
                 tool = Tool(**tool_data)
                 self.tools[tool.name] = tool
             except Exception as e:
+                failed_tools.append((tool_data.get('name', 'unknown'), str(e)))
                 logger.error(f"Failed to load tool {tool_data.get('name')}: {e}")
         
-        logger.info(f"Loaded {len(self.tools)} tools from {self.tools_yaml_path}")
+        if failed_tools:
+            error_msg = f"Failed to load {len(failed_tools)} tools: {failed_tools}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        if not self.tools:
+            logger.error("No valid tools loaded from tools.yaml")
+            raise ValueError("No valid tools found in tools.yaml")
+        
+        logger.info(f"Successfully validated and loaded {len(self.tools)} tools from {self.tools_yaml_path}")
     
     def get_all_tools(self) -> dict[str, Tool]:
         return self.tools.copy()

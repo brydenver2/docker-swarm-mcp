@@ -15,6 +15,9 @@ pydantic = "2.5.0"
 pyyaml = "6.0.1"
 urllib3 = "<2.0"
 requests = "<2.32"
+fastapi-mcp = "^0.3.0"
+jsonschema = "^4.20.0"
+pyjwt = "^2.8.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4"
@@ -49,8 +52,9 @@ module = "docker.*"
 ignore_missing_imports = true
 
 [tool.bandit]
-exclude_dirs = ["tests", ".venv"]
+exclude_dirs = ["tests", ".venv", "docs"]
 skips = ["B101"]
+targets = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

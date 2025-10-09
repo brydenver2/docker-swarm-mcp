@@ -1,0 +1,47 @@
+[bandit]
+exclude_dirs = /tests,/.venv,/docs
+targets = app
+
+# B101: assert_used - Allow asserts in test code
+# B601: paramiko_calls - We might use SSH for Docker connections
+# B603: subprocess_without_shell_equals_true - Docker SDK handles this safely
+skips = B101,B601
+
+# Security checks to always run
+# B105: hardcoded_password_string
+# B106: hardcoded_password_funcarg
+# B107: hardcoded_password_default
+# B108: hardcoded_tmp_directory
+# B201: flask_debug_true (similar to DEBUG mode)
+# B301: pickle
+# B302: marshal
+# B303: md5
+# B304: insecure_cipher
+# B305: insecure_cipher_mode
+# B306: insecure_mktemp
+# B307: eval
+# B308: mark_safe
+# B309: httpsconnection
+# B310: urllib_urlopen
+# B311: random
+# B312: telnetlib
+# B313: xml_bad_cElementTree
+# B314: xml_bad_ElementTree
+# B315: xml_bad_expatreader
+# B316: xml_bad_expatbuilder
+# B317: xml_bad_sax
+# B318: xml_bad_minidom
+# B319: xml_bad_pulldom
+# B320: xml_bad_etree
+# B323: unverified_context
+# B324: hashlib
+
+tests = B105,B106,B107,B108,B201,B301,B302,B303,B304,B305,B306,B307,B308,B309,B310,B311,B312,B313,B314,B315,B316,B317,B318,B319,B320,B323,B324,B501,B502,B503,B504,B505,B506,B507,B508,B509
+
+# Set severity level
+# Options: LOW, MEDIUM, HIGH
+severity = MEDIUM
+
+# Set confidence level
+# Options: LOW, MEDIUM, HIGH
+confidence = MEDIUM
