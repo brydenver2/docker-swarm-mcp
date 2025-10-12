@@ -1,12 +1,14 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from datetime import datetime
+
+from app.schemas.ipam import IPAM
 
 
 class NetworkCreateRequest(BaseModel):
     name: str = Field(..., description="Network name")
     driver: Optional[str] = Field("bridge", description="Network driver (bridge, overlay, macvlan, host, none)")
-    ipam: Optional[Dict[str, Any]] = Field(None, description="IP address management configuration")
+    ipam: Optional[IPAM] = Field(None, description="IP address management configuration")
     options: Optional[Dict[str, str]] = Field(None, description="Driver-specific options")
 
     class Config:
@@ -15,6 +17,7 @@ class NetworkCreateRequest(BaseModel):
                 "name": "my-network",
                 "driver": "bridge",
                 "ipam": {
+                    "Driver": "default",
                     "Config": [
                         {
                             "Subnet": "172.20.0.0/16",

@@ -1,6 +1,8 @@
 """System service functions"""
 from typing import Any
 
+from app.core.constants import APP_VERSION
+
 from app.docker_client import DockerClient
 from app.utils.retry import retry_read
 
@@ -22,7 +24,7 @@ async def info(docker_client: DockerClient, params: dict[str, Any]) -> dict[str,
     docker_info = docker_client.get_info()
     
     return {
-        "version": "0.2.0",
+        "version": APP_VERSION,
         "os": docker_info.get("OperatingSystem", "unknown"),
         "architecture": docker_info.get("Architecture", "unknown"),
         "docker_version": docker_info.get("ServerVersion", "unknown"),

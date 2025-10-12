@@ -179,6 +179,8 @@ class DynamicToolGatingMCP:
                 "request_id": request_id,
                 "session_id": session_id,
                 "client_info": params.get("clientInfo") if params else None
+from app.core.constants import APP_VERSION
+
             }
         )
 
@@ -186,7 +188,7 @@ class DynamicToolGatingMCP:
             "protocolVersion": settings.MCP_PROTOCOL_VERSION,
             "serverInfo": {
                 "name": "docker-swarm-mcp",
-                "version": "0.2.0"
+                "version": APP_VERSION
             },
             "capabilities": {
                 "tools": {

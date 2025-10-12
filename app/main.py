@@ -13,6 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.constants import APP_NAME, APP_VERSION
 from app.core.errors import register_exception_handlers
 from app.core.logging import setup_logging
 from app.docker_client import get_docker_client
@@ -227,9 +228,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(
-    title="Docker Swarm MCP Server",
+    title=APP_NAME,
     description="HTTP-based Model Context Protocol server for Docker operations",
-    version="0.2.0",
+    version=APP_VERSION,
     lifespan=lifespan
 )
 
@@ -309,4 +310,4 @@ app.include_router(volumes_router, tags=["Volumes"])
 
 @app.get("/")
 async def root() -> dict[str, str]:
-    return {"message": "Docker Swarm MCP Server", "version": "0.2.0"}
+    return {"message": APP_NAME, "version": APP_VERSION}

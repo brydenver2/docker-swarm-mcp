@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request
 
 from app.core.config import settings
+from app.core.constants import APP_VERSION, MCP_ROUTES
 
 router = APIRouter()
 
@@ -17,7 +18,7 @@ async def health_check(request: Request) -> dict[str, str | bool | int]:
     return {
         "status": "healthy" if docker_reachable else "degraded",
         "docker_reachable": docker_reachable,
-        "version": "0.2.0"
+        "version": APP_VERSION
     }
 
 
@@ -76,11 +77,6 @@ async def detailed_health_check(request: Request) -> dict[str, str | bool | int]
         "auth_configured": auth_configured,
         "tool_count": tool_count,
         "protocol_version": settings.MCP_PROTOCOL_VERSION,
-        "version": "0.2.0",
-        "endpoints": {
-            "mcp_jsonrpc": "/mcp/v1",
-            "tools_list": "/mcp/tools",
-            "health": "/mcp/health",
-            "detailed_health": "/mcp/healthz"
-        }
+        "version": APP_VERSION,
+        "endpoints": MCP_ROUTES
     }
