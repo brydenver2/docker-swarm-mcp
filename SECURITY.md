@@ -194,7 +194,7 @@ The `/mcp/health` endpoint is **unauthenticated** by design for monitoring syste
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability, please email security@yourdomain.com or open a private security advisory on GitHub.
+If you discover a security vulnerability, please email security@yourrealdomain.com or open a private security advisory on GitHub.
 
 **Please include:**
 - Description of the vulnerability
