@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/docker-mcp-client-config.schema.json",
+  "title": "Docker MCP Client Configuration",
+  "description": "JSON Schema for Docker Swarm MCP Server client configuration",
+  "type": "object",
+  "properties": {
+    "mcpServers": {
+      "type": "object",
+      "description": "MCP server configurations",
+      "patternProperties": {
+        "^[a-zA-Z0-9-_]+$": {
+          "type": "object",
+          "description": "Individual MCP server configuration",
+          "oneOf": [
+            { "$ref": "#/$defs/httpTransport" },
+            { "$ref": "#/$defs/sseTransport" },
+            { "$ref": "#/$defs/commandTransport" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["mcpServers"],
+  "$defs": {
+    "httpTransport": {
+      "type": "object",
+      "description": "HTTP transport configuration",
+      "properties": {
+        "transport": {
+          "type": "string",
+          "const": "http",
+          "description": "HTTP transport type"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL of the MCP server",
+          "examples": [
+            "http://localhost:8000",
+            "https://docker-mcp.example.com",
+            "http://100.101.102.103:8000"
+          ]
+        },
+        "headers": {
+          "type": "object",
+          "description": "HTTP headers to send with requests",
+          "properties": {
+            "Authorization": {
+              "type": "string",
+              "pattern": "^Bearer .+$",
+              "description": "Bearer token for authentication",
+              "examples": ["Bearer your-secure-token-here"]
+            }
+          },
+          "required": ["Authorization"],
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "endpoints": {
+          "type": "object",
+          "description": "Custom endpoint paths (optional)",
+          "properties": {
+            "tools": {
+              "type": "string",
+              "default": "/mcp/tools",
+              "description": "Tool discovery endpoint"
+            },
+            "health": {
+              "type": "string",
+              "default": "/mcp/health",
+              "description": "Health check endpoint"
+            }
+          },
+          "additionalProperties": false
+        },
+        "queryParams": {
+          "type": "object",
+          "description": "Query parameters to append to requests",
+          "properties": {
+            "task-type": {
+              "type": "string",
+              "enum": [
+                "container-ops",
+                "compose-ops",
+                "service-ops",
+                "network-ops",
+                "volume-ops",
+                "system-ops"
+              ],
+              "description": "Filter tools by task type"
+            }
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 60000,
+          "default": 30000,
+          "description": "Request timeout in milliseconds"
+        }
+      },
+      "required": ["transport", "url", "headers"],
+      "additionalProperties": false
+    },
+    "sseTransport": {
+      "type": "object",
+      "description": "Server-Sent Events transport configuration",
+      "properties": {
+        "transport": {
+          "type": "string",
+          "const": "sse",
+          "description": "SSE transport type"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL of the MCP server",
+          "examples": [
+            "http://localhost:8000",
+            "https://docker-mcp.example.com"
+          ]
+        },
+        "headers": {
+          "type": "object",
+          "description": "HTTP headers to send with requests",
+          "properties": {
+            "Authorization": {
+              "type": "string",
+              "pattern": "^Bearer .+$",
+              "description": "Bearer token for authentication"
+            }
+          },
+          "required": ["Authorization"],
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["transport", "url", "headers"],
+      "additionalProperties": false
+    },
+    "commandTransport": {
+      "type": "object",
+      "description": "Command-based transport (for Claude Desktop)",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "Command to execute",
+          "examples": ["curl"]
+        },
+        "args": {
+          "type": "array",
+          "description": "Command arguments",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            ["-H", "Authorization: Bearer token", "http://localhost:8000/mcp/tools"]
+          ]
+        },
+        "env": {
+          "type": "object",
+          "description": "Environment variables for the command",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        }
+      },
+      "required": ["command", "args"],
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "mcpServers": {
+        "docker": {
+          "transport": "http",
+          "url": "http://localhost:8000",
+          "headers": {
+            "Authorization": "Bearer your-secure-token-here"
+          }
+        }
+      }
+    },
+    {
+      "mcpServers": {
+        "docker-containers": {
+          "transport": "http",
+          "url": "http://localhost:8000",
+          "headers": {
+            "Authorization": "Bearer your-secure-token-here"
+          },
+          "queryParams": {
+            "task-type": "container-ops"
+          }
+        },
+        "docker-stacks": {
+          "transport": "http",
+          "url": "http://localhost:8000",
+          "headers": {
+            "Authorization": "Bearer your-secure-token-here"
+          },
+          "queryParams": {
+            "task-type": "compose-ops"
+          }
+        }
+      }
+    },
+    {
+      "mcpServers": {
+        "docker-remote": {
+          "transport": "http",
+          "url": "https://abc123.ngrok.io",
+          "headers": {
+            "Authorization": "Bearer your-secure-token-here"
+          },
+          "timeout": 60000
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,509 @@
+tools:
+  - name: ping
+    description: Verify Docker engine connectivity
+    method: GET
+    path: /system/ping
+    request_schema: null
+    response_schema:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+    task_types:
+      - system-ops
+    priority: 0
+
+  - name: info
+    description: Get Docker system information including version, OS, architecture, and Swarm status
+    method: GET
+    path: /system/info
+    request_schema: null
+    response_schema:
+      type: object
+      properties:
+        version:
+          type: string
+        os:
+          type: string
+        architecture:
+          type: string
+        docker_version:
+          type: string
+    task_types:
+      - system-ops
+    priority: 0
+
+  - name: list-containers
+    description: List Docker containers
+    method: GET
+    path: /containers
+    request_schema: null
+    response_schema:
+      type: array
+      items:
+        type: object
+    task_types:
+      - container-ops
+    priority: 0
+
+  - name: create-container
+    description: Create a new Docker container
+    method: POST
+    path: /containers
+    request_schema:
+      type: object
+      required:
+        - image
+      properties:
+        image:
+          type: string
+        name:
+          type: string
+        environment:
+          type: object
+        ports:
+          type: object
+        volumes:
+          type: object
+        restart_policy:
+          type: string
+    response_schema:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        image:
+          type: string
+        created:
+          type: string
+    task_types:
+      - container-ops
+    priority: 0
+
+  - name: start-container
+    description: Start a Docker container
+    method: POST
+    path: /containers/{id}/start
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - container-ops
+    priority: 0
+
+  - name: stop-container
+    description: Stop a Docker container
+    method: POST
+    path: /containers/{id}/stop
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - container-ops
+    priority: 0
+
+  - name: remove-container
+    description: Remove a Docker container
+    method: DELETE
+    path: /containers/{id}
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - container-ops
+    required_scopes:
+      - admin
+    priority: 0
+
+  - name: get-logs
+    description: Get Docker container logs
+    method: GET
+    path: /containers/{id}/logs
+    request_schema: null
+    response_schema:
+      type: string
+    task_types:
+      - container-ops
+    priority: 0
+
+  - name: deploy-compose
+    description: Deploy a Docker Compose stack
+    method: POST
+    path: /stacks/deploy
+    request_schema:
+      type: object
+      required:
+        - project_name
+        - compose_yaml
+      properties:
+        project_name:
+          type: string
+          pattern: ^[a-z0-9-]+$
+        compose_yaml:
+          type: string
+        force_recreate:
+          type: boolean
+          default: false
+    response_schema:
+      type: object
+      properties:
+        project_name:
+          type: string
+        services:
+          type: array
+          items:
+            type: string
+        mode:
+          type: string
+        created:
+          type: string
+    task_types:
+      - compose-ops
+    priority: 0
+
+  - name: list-stacks
+    description: List Docker Compose stacks
+    method: GET
+    path: /stacks
+    request_schema: null
+    response_schema:
+      type: array
+      items:
+        type: object
+        properties:
+          project_name:
+            type: string
+          services:
+            type: array
+            items:
+              type: string
+          service_count:
+            type: integer
+    task_types:
+      - compose-ops
+    priority: 0
+
+  - name: remove-compose
+    description: Remove a Docker Compose stack
+    method: DELETE
+    path: /stacks/{project_name}
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - compose-ops
+    required_scopes:
+      - admin
+    priority: 0
+
+  - name: list-services
+    description: List Docker Swarm services
+    method: GET
+    path: /services
+    request_schema: null
+    response_schema:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          name:
+            type: string
+          replicas:
+            type: integer
+          image:
+            type: string
+          created:
+            type: string
+          mode:
+            type: string
+    task_types:
+      - service-ops
+    priority: 0
+
+  - name: scale-service
+    description: Scale a Docker Swarm service replica count
+    method: POST
+    path: /services/{name}/scale
+    request_schema:
+      type: object
+      required:
+        - replicas
+      properties:
+        replicas:
+          type: integer
+          minimum: 0
+    response_schema:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        replicas:
+          type: integer
+        image:
+          type: string
+        created:
+          type: string
+        mode:
+          type: string
+    task_types:
+      - service-ops
+    required_scopes:
+      - admin
+    priority: 0
+
+  - name: remove-service
+    description: Remove a Docker Swarm service
+    method: DELETE
+    path: /services/{name}
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - service-ops
+    required_scopes:
+      - admin
+    priority: 0
+
+  - name: list-networks
+    description: List Docker networks
+    method: GET
+    path: /networks
+    request_schema: null
+    response_schema:
+      type: array
+      items:
+        type: object
+        properties:
+          id:
+            type: string
+          name:
+            type: string
+          driver:
+            type: string
+          scope:
+            type: string
+          created:
+            type: string
+    task_types:
+      - network-ops
+    priority: 0
+
+  - name: create-network
+    description: Create a Docker network
+    method: POST
+    path: /networks
+    request_schema:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        driver:
+          type: string
+          default: bridge
+        ipam:
+          type: object
+        options:
+          type: object
+    response_schema:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        driver:
+          type: string
+        scope:
+          type: string
+        created:
+          type: string
+    task_types:
+      - network-ops
+    priority: 0
+
+  - name: remove-network
+    description: Remove a Docker network
+    method: DELETE
+    path: /networks/{id}
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - network-ops
+    required_scopes:
+      - admin
+    priority: 0
+
+  - name: list-volumes
+    description: List Docker volumes
+    method: GET
+    path: /volumes
+    request_schema: null
+    response_schema:
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          driver:
+            type: string
+          mountpoint:
+            type: string
+          created:
+            type: string
+    task_types:
+      - volume-ops
+    priority: 0
+
+  - name: create-volume
+    description: Create a Docker volume
+    method: POST
+    path: /volumes
+    request_schema:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        driver:
+          type: string
+          default: local
+        options:
+          type: object
+        labels:
+          type: object
+    response_schema:
+      type: object
+      properties:
+        name:
+          type: string
+        driver:
+          type: string
+        mountpoint:
+          type: string
+        created:
+          type: string
+    task_types:
+      - volume-ops
+    priority: 0
+
+  - name: remove-volume
+    description: Remove a Docker volume
+    method: DELETE
+    path: /volumes/{name}
+    request_schema: null
+    response_schema:
+      type: object
+    task_types:
+      - volume-ops
+    required_scopes:
+      - admin
+    priority: 0
+
+  - name: discover-tools
+    description: |
+      Learn how to discover and access all 21 Docker tools using task type filtering. 
+      Returns guidance on the 6 available task types and how to use the task_type parameter. 
+      Note: This tool is MCP-only, not available via REST API.
+    method: GET
+    path: /meta/discover-tools
+    request_schema: null
+    response_schema:
+      type: object
+      properties:
+        guidance:
+          type: string
+        task_types:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              tool_count:
+                type: integer
+              example_tools:
+                type: array
+                items:
+                  type: string
+        example_request:
+          type: string
+      additionalProperties: true
+    task_types:
+      - meta-ops
+    priority: 0
+
+  - name: list-task-types
+    description: |
+      View all available task types and their associated tools. Returns a complete mapping 
+      of task types to tool names. Note: This tool is MCP-only, not available via REST API.
+    method: GET
+    path: /meta/list-task-types
+    request_schema: null
+    response_schema:
+      type: object
+      properties:
+        task_types:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        total_tools:
+          type: integer
+        max_tools_per_request:
+          type: integer
+        usage_hint:
+          type: string
+      additionalProperties: true
+    task_types:
+      - meta-ops
+    priority: 0
+
+  - name: intent-query-help
+    description: |
+      Learn how to use natural language queries for automatic tool discovery. Returns examples 
+      and guidance on intent-based filtering. Note: This tool is MCP-only, not available via REST API.
+    method: GET
+    path: /meta/intent-query-help
+    request_schema: null
+    response_schema:
+      type: object
+      properties:
+        guidance:
+          type: string
+        examples:
+          type: array
+          items:
+            type: object
+            properties:
+              query:
+                type: string
+              detected_task_type:
+                type: string
+              description:
+                type: string
+        enabled:
+          type: boolean
+        example_request:
+          type: string
+        note:
+          type: string
+      additionalProperties: true
+    task_types:
+      - meta-ops
+    priority: 0

@@ -1,0 +1,16 @@
+# Production/Development override example
+# Copy to docker-compose.override.yaml and customize for your environment
+services:
+  mcp-server:
+    environment:
+      # Production CORS - restrict to your specific domains
+      - ALLOWED_ORIGINS=https://yourapp.com,https://admin.yourapp.com
+      # Production logging
+      - LOG_LEVEL=INFO
+    # Uncomment for development if you need root access
+    # user: root  # Only for development - NOT recommended for production
+    # Add production-specific labels
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mcp.rule=Host(`mcp.yourapp.com`)"
+      - "traefik.http.routers.mcp.tls=true"

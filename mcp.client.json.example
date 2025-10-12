@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "docker-swarm-mcp": {
+      "url": "http://localhost:8000/mcp/v1",
+      "headers": {
+        "Authorization": "Bearer ${MCP_ACCESS_TOKEN}"
+      }
+    }
+  }
+}

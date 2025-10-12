@@ -1,0 +1,66 @@
+{
+  "task_type_allowlists": {
+    "container-ops": ["list-containers", "create-container", "start-container", "stop-container", "remove-container", "get-logs"],
+    "compose-ops": ["deploy-compose", "list-stacks", "remove-compose"],
+    "service-ops": ["list-services", "scale-service", "remove-service"],
+    "network-ops": ["list-networks", "create-network", "remove-network"],
+    "volume-ops": ["list-volumes", "create-volume", "remove-volume"],
+    "system-ops": ["ping", "info"],
+    "meta-ops": ["discover-tools", "list-task-types", "intent-query-help"]
+  },
+  "max_tools": 10,
+  "blocklist": [],
+  "intent_keywords": {
+    "container-ops": [
+      "container", "containers", "docker run", "start", "stop", 
+      "restart", "logs", "exec", "attach", "inspect container",
+      "running container", "container status", "docker container",
+      "container logs", "container exec", "container start",
+      "container stop", "container restart", "container remove",
+      "container inspect", "container list", "container create"
+    ],
+    "compose-ops": [
+      "compose", "stack", "deploy", "docker-compose", "docker compose",
+      "compose file", "compose.yaml", "docker-compose.yml",
+      "multi-container", "orchestrate", "compose up", "compose down",
+      "compose build", "compose start", "compose stop", "compose restart",
+      "compose logs", "compose ps", "compose scale", "stack deploy",
+      "stack remove", "stack list", "stack services"
+    ],
+    "service-ops": [
+      "service", "services", "swarm", "scale", "replicas",
+      "swarm service", "service scale", "update service",
+      "docker service", "service create", "service remove",
+      "service inspect", "service logs", "service ps",
+      "service update", "service rollback", "service list"
+    ],
+    "network-ops": [
+      "network", "networks", "bridge", "overlay", "subnet",
+      "network create", "network connect", "network disconnect",
+      "docker network", "network inspect", "network remove",
+      "network list", "bridge network", "overlay network",
+      "network driver", "network ip", "network gateway"
+    ],
+    "volume-ops": [
+      "volume", "volumes", "storage", "mount", "bind",
+      "volume create", "persistent storage", "data volume",
+      "docker volume", "volume inspect", "volume remove",
+      "volume list", "volume driver", "volume mount",
+      "bind mount", "tmpfs", "volume backup"
+    ],
+    "system-ops": [
+      "info", "ping", "version", "status", "system",
+      "docker info", "docker version", "health check",
+      "connectivity", "daemon", "docker system", "system df",
+      "system prune", "system events", "docker events",
+      "docker stats", "docker top", "docker history"
+    ],
+    "meta-ops": [
+      "help", "guide", "how to", "discover", "available tools",
+      "task types", "tool list", "what tools", "show tools",
+      "tool discovery", "find tools", "search tools",
+      "natural language", "query", "intent", "filter tools",
+      "tool filtering", "access tools", "tool organization"
+    ]
+  }
+}
