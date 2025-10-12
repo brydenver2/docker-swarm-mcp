@@ -41,6 +41,8 @@
 ### Secrets Management
 
 - **Environment Variables**: All secrets configured via environment variables
+- .kilocode/ is gitignored. Do not commit client config or tokens there. If a client (e.g., local tools) expects an Authorization header, use a runtime reference such as `Bearer ${MCP_ACCESS_TOKEN}` and rely on environment expansion or a secret manager. Never embed raw tokens in JSON files.
+
 - **Secret Redaction**: Sensitive headers redacted in logs
 - **No Hardcoded Credentials**: No default tokens or passwords in code
 - **Tailscale Auth Key Security**: Multiple options for secure authentication
