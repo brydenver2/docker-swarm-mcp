@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     setup_logging()
-    logger.info("Starting Docker MCP Server")
+    logger.info("Starting Docker Swarm MCP Server")
     
     # Validate authentication configuration
     if not settings.TOKEN_SCOPES and not settings.MCP_ACCESS_TOKEN:
@@ -129,11 +129,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     
     yield
     
-    logger.info("Shutting down Docker MCP Server")
+    logger.info("Shutting down Docker Swarm MCP Server")
 
 
 app = FastAPI(
-    title="Docker MCP Server",
+    title="Docker Swarm MCP Server",
     description="HTTP-based Model Context Protocol server for Docker operations",
     version="0.2.0",
     lifespan=lifespan
@@ -215,4 +215,4 @@ app.include_router(volumes_router, tags=["Volumes"])
 
 @app.get("/")
 async def root() -> dict[str, str]:
-    return {"message": "Docker MCP Server", "version": "0.2.0"}
+    return {"message": "Docker Swarm MCP Server", "version": "0.2.0"}

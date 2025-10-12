@@ -246,7 +246,7 @@ mcp = DynamicToolGatingMCP(
     fastapi=app,
     tool_registry=tool_registry,
     tool_gate_controller=tool_gate_controller,
-    name="Docker MCP Server",
+    name="Docker Swarm MCP Server",
     description="Intelligent Docker management with dynamic tool filtering"
 )
 

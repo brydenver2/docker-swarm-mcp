@@ -1,6 +1,6 @@
 # MCP Protocol Integration Plan
 
-**Objective**: Add proper MCP JSON-RPC protocol support to the Docker MCP Server using fastapi-mcp library while preserving 100% of existing tool gating and context optimization functionality.
+**Objective**: Add proper MCP JSON-RPC protocol support to the Docker Swarm MCP Server using fastapi-mcp library while preserving 100% of existing tool gating and context optimization functionality.
 
 **Status**: 🟡 In Progress  
 **Started**: 2025-10-08  
@@ -11,7 +11,7 @@
 ## Executive Summary
 
 ### Problem Statement
-The Docker MCP Server was built as a REST API instead of implementing the MCP JSON-RPC protocol specification. While all Docker operations and tool gating logic are correctly implemented, MCP clients (like kilocode/opencode) cannot use the server because it doesn't speak the MCP protocol.
+The Docker Swarm MCP Server was built as a REST API instead of implementing the MCP JSON-RPC protocol specification. While all Docker operations and tool gating logic are correctly implemented, MCP clients (like kilocode/opencode) cannot use the server because it doesn't speak the MCP protocol.
 
 ### Solution Approach
 Integrate the `fastapi-mcp` library to add MCP JSON-RPC protocol support. Create a custom `DynamicToolGatingMCP` class that extends `FastApiMCP` to preserve our dynamic per-request tool filtering using the existing `ToolGateController`.

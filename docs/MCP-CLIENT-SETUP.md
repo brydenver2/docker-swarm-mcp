@@ -1,13 +1,14 @@
 # MCP Client Setup Guide
 
-This guide shows how to configure MCP clients (Claude Desktop, claude-code, etc.) to connect to your Docker MCP Server.
+
+This guide shows how to configure MCP clients (Claude Desktop, claude-code, etc.) to connect to your Docker Swarm MCP Server.
 
 ## Table of Contents
 
 - [MCP Client Setup Guide](#mcp-client-setup-guide)
   - [Table of Contents](#table-of-contents)
   - [Quick Start](#quick-start)
-    - [1. Start the Docker MCP Server](#1-start-the-docker-mcp-server)
+    - [1. Start the Docker Swarm MCP Server](#1-start-the-docker-mcp-server)
     - [2. Configure Your MCP Client](#2-configure-your-mcp-client)
     - [3. Test the Connection](#3-test-the-connection)
   - [Configuration Formats](#configuration-formats)
@@ -38,7 +39,7 @@ This guide shows how to configure MCP clients (Claude Desktop, claude-code, etc.
 
 ## Quick Start
 
-### 1. Start the Docker MCP Server
+### 1. Start the Docker Swarm MCP Server
 
 ```bash
 # Set your access token

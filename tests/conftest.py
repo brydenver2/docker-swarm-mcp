@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for docker-mcp-server tests
+Pytest configuration and fixtures for docker-swarm-mcp tests
 """
 
 import pytest

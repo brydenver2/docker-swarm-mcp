@@ -2,7 +2,7 @@
 
 ## Overview
 
-Comprehensive session completing MCP server integration, security audit, and public release preparation for the Docker MCP Server.
+Comprehensive session completing MCP server integration, security audit, and public release preparation for the Docker Swarm MCP Server.
 
 ---
 

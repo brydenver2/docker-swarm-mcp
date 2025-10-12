@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/docker-mcp-client-config.schema.json",
   "title": "Docker MCP Client Configuration",
-  "description": "JSON Schema for Docker MCP Server client configuration",
+  "description": "JSON Schema for Docker Swarm MCP Server client configuration",
   "type": "object",
   "properties": {
     "mcpServers": {

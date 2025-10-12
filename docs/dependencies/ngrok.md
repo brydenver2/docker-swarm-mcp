@@ -14,7 +14,7 @@ ngrok creates secure tunnels from a public endpoint to a locally running web ser
 - Authentication and access control
 - Webhook testing
 
-## Security Considerations for Docker MCP Server
+## Security Considerations for Docker Swarm MCP Server
 - **Always use authentication**: ngrok tunnels are public by default. Enable HTTP basic auth or use ngrok's built-in authentication
 - **Use access tokens**: Configure MCP_ACCESS_TOKEN to protect your Docker operations
 - **Monitor tunnel activity**: Use ngrok's dashboard to monitor connections

@@ -1,4 +1,4 @@
-# Docker MCP Server - Quick Reference
+# Docker Swarm MCP Server - Quick Reference
 
 ## Server Setup
 

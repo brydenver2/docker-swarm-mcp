@@ -124,7 +124,7 @@ grep -r "MCP_ACCESS_TOKEN=" . --exclude-dir=".git" --exclude="*.md" --exclude="e
 # 4. Verify Docker build
 docker-compose build
 docker-compose up -d
-docker logs docker-mcp-server --tail 20
+docker logs docker-swarm-mcp --tail 20
 
 # 5. Test endpoints
 curl http://localhost:8000/mcp/health

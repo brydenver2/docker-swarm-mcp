@@ -15,7 +15,7 @@ Tailscale creates encrypted point-to-point connections between devices in your n
 - Cross-platform support (Linux, macOS, Windows, mobile)
 - Subnet routing for accessing entire networks
 
-## Security Considerations for Docker MCP Server
+## Security Considerations for Docker Swarm MCP Server
 - **Private network**: Tailscale creates a private network, devices outside your Tailnet cannot access your MCP server
 - **ACLs**: Use Tailscale ACLs to restrict which devices can access your Docker host
 - **Still use authentication**: Configure MCP_ACCESS_TOKEN even on Tailscale networks for defense in depth

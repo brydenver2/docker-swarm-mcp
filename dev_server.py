@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Development server for docker-mcp-server with mock Docker client
+Development server for docker-swarm-mcp with mock Docker client
 Run this to test MCP endpoints without requiring Docker connectivity
 """
 
@@ -219,7 +219,7 @@ def setup_mock_app_state():
 def main():
     """Run the development server with mock Docker client"""
     
-    print("🚀 Starting Docker MCP Server in development mode with mock Docker client")
+    print("🚀 Starting Docker Swarm MCP Server in development mode with mock Docker client")
     print("📋 Mock Docker client - no real Docker connectivity required")
     print("🔗 Server will be available at: http://localhost:8000")
     print("🔑 MCP endpoint: http://localhost:8000/mcp/v1/ (note trailing slash)")

@@ -99,7 +99,7 @@ class MockMCPServer:
                 }
             },
             "serverInfo": {
-                "name": "docker-mcp-server-mock",
+                "name": "docker-swarm-mcp-mock",
                 "version": "0.1.0"
             }
         }
@@ -159,7 +159,7 @@ class MockMCPServer:
             raise ValueError(f"Unknown tool: {tool_name}")
 
 # Create FastAPI app
-app = FastAPI(title="Docker MCP Server Mock", version="0.1.0")
+app = FastAPI(title="Docker Swarm MCP Server Mock", version="0.1.0")
 
 # Add CORS middleware
 app.add_middleware(
@@ -287,7 +287,7 @@ async def mcp_endpoint(request: Request):
 async def root():
     """Root endpoint"""
     return {
-        "message": "Docker MCP Server Mock",
+        "message": "Docker Swarm MCP Server Mock",
         "version": "0.1.0",
         "endpoints": {
             "mcp": "/mcp/v1",
@@ -297,7 +297,7 @@ async def root():
 
 def main():
     """Run the mock MCP server"""
-    print("🚀 Starting Mock Docker MCP Server")
+    print("🚀 Starting Mock Docker Swarm MCP Server")
     print("📋 This is a development server with mock Docker functionality")
     print("🔗 Server will be available at: http://localhost:8000")
     print("🔑 MCP endpoint: http://localhost:8000/mcp/v1")

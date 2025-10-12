@@ -502,7 +502,7 @@ ALLOWED_ORIGINS=*
 9. **Complete documentation** with usage guides and examples
 10. **Production-ready deployment** with proper error handling
 
-The Docker MCP Server is now a **production-ready** MCP JSON-RPC server with advanced tool gating, security, and observability features.
+The Docker Swarm MCP Server is now a **production-ready** MCP JSON-RPC server with advanced tool gating, security, and observability features.
 
 ---
 

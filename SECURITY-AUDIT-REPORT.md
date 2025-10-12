@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-The Docker MCP Server has undergone a comprehensive security audit and is **ready for public release** with appropriate security documentation and mitigations in place.
+The Docker Swarm MCP Server has undergone a comprehensive security audit and is **ready for public release** with appropriate security documentation and mitigations in place.
 
 ### Overall Security Posture: **GOOD** ✅
 
@@ -253,7 +253,7 @@ All security-critical functionality verified:
 
 ## Conclusion
 
-The Docker MCP Server is **production-ready from a security perspective** with the following caveats:
+The Docker Swarm MCP Server is **production-ready from a security perspective** with the following caveats:
 
 ### ✅ Strong Points
 1. Robust authentication with HMAC verification
