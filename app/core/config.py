@@ -60,13 +60,17 @@ class Settings:
 
     DEBUG: bool = LOG_LEVEL == "DEBUG"
 
-    def __post_init__(self):
+    def validate(self):
         """Validate security-critical settings"""
         # Fail fast if both MCP_ACCESS_TOKEN and TOKEN_SCOPES are unset
         if not self.MCP_ACCESS_TOKEN and not self.TOKEN_SCOPES:
-            print("ERROR: Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be set", file=sys.stderr)
-            print("Set MCP_ACCESS_TOKEN for single-token auth or TOKEN_SCOPES for multi-token auth", file=sys.stderr)
-            sys.exit(1)
+            raise ValueError(
+                "Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be set. "
+                "Set MCP_ACCESS_TOKEN for single-token auth or TOKEN_SCOPES for multi-token auth"
+            )
+
+settings = Settings()
+settings.validate()
 
 
 settings = Settings()
