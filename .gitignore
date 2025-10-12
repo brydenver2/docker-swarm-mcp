@@ -72,3 +72,17 @@ docker-compose.override.yml
 # Internal development specs (not for public distribution)
 specs/
 .specify/
+
+# AI assistant configuration and session data
+.claude/
+.claude-flow/
+.cursor/
+.kilocode/
+.opencode/
+.specify/
+.superdesign/
+.swarm/
+
+# Development specification directories
+spec/
+.venv
