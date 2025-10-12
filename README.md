@@ -1,83 +1,252 @@
-# Docker Swarm MCP Server
+# 🐳 Docker Swarm MCP Server
 
-![Semgrep](https://img.shields.io/badge/Scanned%20with-Semgrep-brightgreen?logo=semgrep) ![Code Reviewed by CodeRabbit](https://img.shields.io/badge/Code%20Reviewed%20by-CodeRabbit-000000?style=flat-square&logo=appveyor&logoColor=white&color=FF570A)
+**The missing MCP server for Docker Swarm.** Finally, a production-ready MCP that gives you full Docker Swarm control without drowning your AI in tool descriptions.
 
+![Semgrep](https://img.shields.io/badge/Scanned%20with-Semgrep-brightgreen?logo=semgrep) ![Code Reviewed by CodeRabbit](https://img.shields.io/badge/Code%20Reviewed%20by-CodeRabbit-000000?style=flat-square&logo=appveyor&logoColor=white&color=FF570A) ![Version](https://img.shields.io/badge/version-0.2.0-blue) ![Production Ready](https://img.shields.io/badge/status-production--ready-green)
 
-Streamable-HTTP-based Model Context Protocol (MCP) server for Docker operations with context-preserving tool gating. Let your agents focus their context on your project not tool description! 
+## 🎯 Why This Exists
 
-## Features
+**The Gap:** After searching the MCP ecosystem, I found:
+- ❌ Regular Docker MCPs with limited functionality (containers only, localhost only)
+- ❌ Portainer MCP that only works with CE (not BE/EE)  
+- ❌ No proper Swarm support anywhere
+- ❌ All existing servers dump 20+ tools into your agents context window
 
-- **Intent-Based Tool Discovery**: Automatic task-type detection from natural language queries to avoid context overload from bulk tool descriptions
-- **📚 Instructional Content**: Built-in guidance through meta-tools and prompts for discovering and accessing all tools
-- **Dynamic Context Optimization**: Returns only 2-6 relevant tools per request instead of all 23, keeping context size under control.
-- **Secure Remote Access**: Access token authentication for MCP clients
-- **Docker Operations**: Containers, Compose stacks, Swarm services, networks, volumes, system info
-- **Multi-Transport Support**: HTTP (default) and SSE fallback
-- **Remote Docker Engines**: Local socket, TLS, and SSH connections
+**The Solution:** This server fills that gap with:
+- ✅ **Full Docker Swarm support** - Services, stacks, configs, secrets
+- ✅ **Smart context preservation** - Only shows tools you need (2-6 instead of 23)
+- ✅ **Production security** - Bearer tokens, TLS, remote Docker support, *Tailscale Integration (coming soon)*
+- ✅ **No bloat** - Just the tools you need, when you need them, filtered by the task at hand.
 
-### Intent-Based Tool Discovery
+## 🚀 Quick Start (2 Minutes)
 
-The server automatically filters tools based on your queries:
-
-```bash
-# The server automatically filters tools based on your queries
-curl -X POST http://localhost:8000/mcp/v1 \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "tools/list",
-    "params": {"query": "show me running containers"},
-    "id": 1
-  }'
-
-# Returns only container-ops tools (4-6 tools instead of 23)
-```
-
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.12+
-- Poetry
-- Docker Engine 24+
-
-### Docker Installation (Recommended)
+### 1️⃣ Deploy to Your Swarm
 
 ```bash
-# Build the **container**
-docker build -t docker-swarm-mcp .
+# Save this as docker-swarm-mcp.yml (or use one of the examples below)
+# Deploy to your swarm
+docker stack deploy -c docker-swarm-mcp.yml mcp-server
 
-# Run with Docker Compose
-docker-compose up -d
+# Verify it's running
+docker service logs mcp-server_docker-mcp
 ```
 
-### Developer Installation
+<details>
+<summary><b>📝 Basic Stack Configuration</b></summary>
 
+```yaml
+version: '3.8'
+
+services:
+  docker-mcp:
+    image: ghcr.io/yourusername/docker-swarm-mcp:latest
+    environment:
+      - MCP_ACCESS_TOKEN=${MCP_ACCESS_TOKEN:-change-me-to-secure-token}
+      - LOG_LEVEL=INFO
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "8000:8000"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+      placement:
+        constraints:
+          - node.role == manager  # Needs Docker socket access
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: overlay
+    attachable: true
+```
+</details>
+
+<details>
+<summary><b>🔒 Production Stack with Secrets</b></summary>
+
+```yaml
+version: '3.8'
+
+services:
+  docker-mcp:
+    image: ghcr.io/yourusername/docker-swarm-mcp:latest
+    environment:
+      - MCP_ACCESS_TOKEN_FILE=/run/secrets/mcp_token
+      - LOG_LEVEL=INFO
+      - ALLOWED_ORIGINS=https://claude.ai,http://localhost:*
+    secrets:
+      - mcp_token
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "8000:8000"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/mcp/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - mcp-network
+
+secrets:
+  mcp_token:
+    external: true  # Create with: echo "your-secure-token" | docker secret create mcp_token -
+
+networks:
+  mcp-network:
+    driver: overlay
+    attachable: true
+    encrypted: true
+```
+
+**Setup the secret first:**
 ```bash
-# Install dependencies
-poetry install
+# Generate a secure token
+openssl rand -base64 32 | docker secret create mcp_token -
 
-# Set required environment variables
-export MCP_ACCESS_TOKEN="your-secure-token-here"
-export DOCKER_HOST="unix:///var/run/docker.sock"  # or tcp://host:2376 with TLS
+# Or use your own token
+echo "your-secure-token-here" | docker secret create mcp_token -
+```
+</details>
 
-# Optional: Configure transport mode
-export MCP_TRANSPORT="http"  # or "sse"
-export LOG_LEVEL="INFO"  # DEBUG for context size metrics
+<details>
+<summary><b>🌐 Stack with Traefik Integration</b></summary>
 
-# Run the server
-poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
+```yaml
+version: '3.8'
+
+services:
+  docker-mcp:
+    image: ghcr.io/yourusername/docker-swarm-mcp:latest
+    environment:
+      - MCP_ACCESS_TOKEN_FILE=/run/secrets/mcp_token
+      - LOG_LEVEL=INFO
+      - ALLOWED_ORIGINS=https://mcp.yourdomain.com
+    secrets:
+      - mcp_token
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      replicas: 2  # High availability
+      restart_policy:
+        condition: any
+        delay: 5s
+      placement:
+        constraints:
+          - node.role == manager
+      update_config:
+        parallelism: 1
+        delay: 10s
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mcp.rule=Host(`mcp.yourdomain.com`)"
+        - "traefik.http.routers.mcp.entrypoints=websecure"
+        - "traefik.http.routers.mcp.tls=true"
+        - "traefik.http.routers.mcp.tls.certresolver=letsencrypt"
+        - "traefik.http.services.mcp.loadbalancer.server.port=8000"
+        - "traefik.http.middlewares.mcp-headers.headers.customrequestheaders.Authorization=Bearer ${MCP_TOKEN}"
+        - "traefik.http.routers.mcp.middlewares=mcp-headers"
+    networks:
+      - traefik-public
+      - mcp-internal
+
+secrets:
+  mcp_token:
+    external: true
+
+networks:
+  traefik-public:
+    external: true
+  mcp-internal:
+    driver: overlay
+    encrypted: true
+    internal: true
+```
+</details>
+
+<details>
+<summary><b>🔧 Multi-Node Swarm with Constraints</b></summary>
+
+```yaml
+version: '3.8'
+
+services:
+  docker-mcp:
+    image: ghcr.io/yourusername/docker-swarm-mcp:latest
+    environment:
+      - MCP_ACCESS_TOKEN_FILE=/run/secrets/mcp_token
+      - LOG_LEVEL=INFO
+    secrets:
+      - mcp_token
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - target: 8000
+        published: 8000
+        protocol: tcp
+        mode: host  # Use host mode for better performance
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+      placement:
+        constraints:
+          - node.role == manager
+          - node.labels.mcp == true  # Only on labeled nodes
+        preferences:
+          - spread: node.id
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+    networks:
+      - mcp-network
+
+configs:
+  filter_config:
+    file: ./filter-config.json  # Optional: Custom tool filtering
+
+secrets:
+  mcp_token:
+    external: true
+
+networks:
+  mcp-network:
+    driver: overlay
+    attachable: true
+    encrypted: true
 ```
 
-## MCP Client Setup
+**Label your node:**
+```bash
+docker node update --label-add mcp=true <node-name>
+```
+</details>
 
-Once the server is running, configure your MCP client to connect:
+### 2️⃣ Configure Your AI Assistant
 
-### Claude Desktop
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Add this to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
@@ -95,245 +264,236 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
-### Kilo Code / Cursor
+### 3️⃣ Start Using It!
 
-Add to `.kilocode/mcp.json` in your project:
+Just ask your AI naturally:
+- "What containers are running?"
+- "Deploy my app stack"
+- "Scale the web service to 5 replicas"
+- "Show me the swarm nodes"
 
-```json
-{
-  "mcpServers": {
-    "docker": {
-      "type": "streamable-http",
-      "url": "http://localhost:8000/mcp/v1/",
-      "headers": {
-        "Authorization": "Bearer your-secure-token-here"
-      }
-    }
-  }
-}
+The server automatically detects what you're trying to do and provides just the right tools!
+
+## 🎯 What Makes This Different
+
+### 🧠 Smart Tool Filtering
+Traditional MCP servers dump all their tools into your context. This server is smarter:
+
+| You Say | Tools Returned | Context Saved |
+|---------|---------------|--------------|
+| "List my containers" | 4 container tools | 19 tools hidden |
+| "Deploy a stack" | 3 compose tools | 20 tools hidden |
+| "Check swarm status" | 3 swarm tools | 20 tools hidden |
+| "Create a network" | 3 network tools | 20 tools hidden |
+
+Your AI focuses on YOUR project, not on reading documentation.
+
+### 🐳 Real Docker Swarm Support
+Unlike other Docker MCPs, this one actually understands Swarm:
+- **Services** - Create, scale, update, rolling deployments
+- **Stacks** - Deploy complete applications
+- **Configs & Secrets** - Secure configuration management
+- **Networks** - Overlay networks, encryption
+- **Nodes** - Manage your swarm cluster
+
+### 🔒 Production Security
+Built for real production use:
+- Bearer token authentication
+- Docker secrets support
+- TLS connections to remote Docker
+- CORS configuration
+- Rate limiting ready
+
+### 📚 Self-Documenting
+Your AI can learn the system through meta-tools:
+```
+Ask: "How do I discover Docker tools?"
+Response: Uses `discover-tools` to explain the 6 categories
 ```
 
-### claude-code CLI
+## 💡 Examples
 
+### Container Operations
 ```bash
-claude mcp add docker \
-  --transport http \
-  --url http://localhost:8000/mcp/v1/ \
-  --header "Authorization: Bearer your-secure-token-here"
+# Your AI can now:
+- List all containers with detailed status
+- Create containers with complex configurations
+- Start/stop/restart containers
+- View logs and exec into containers
+- Remove containers safely
 ```
 
-**See [`docs/MCP-CLIENT-SETUP.md`](docs/MCP-CLIENT-SETUP.md) for complete configuration examples.**
+### Swarm Service Management
+```bash
+# Your AI can now:
+- Deploy services with replicas
+- Scale services up or down
+- Update services with rolling updates
+- Check service logs across all replicas
+- Manage service constraints and preferences
+```
 
-## **Protocol**
+### Stack Deployments
+```bash
+# Your AI can now:
+- Deploy complete application stacks
+- Update stacks with new configurations
+- Remove stacks cleanly
+- List all stacks and their services
+```
 
-This server implements the **Model Context Protocol (MCP) JSON-RPC 2.0** specification:
+### Network & Volume Management
+```bash
+# Your AI can now:
+- Create overlay networks for swarm
+- Manage network encryption
+- Create and manage volumes
+- Connect/disconnect containers from networks
+```
 
-- **Endpoint**: `POST /mcp/v1/` (note the trailing slash)
-- **Protocol**: JSON-RPC 2.0 over HTTP
-- **Methods**: `initialize`, `tools/list`, `tools/call`, `prompts/list`, `prompts/get`
-- **Authentication**: Bearer token in `Authorization` header
-- **Response Format**: Compliant with JSON-RPC 2.0 (result OR error, never both)
+## 🛠️ Advanced Configuration
 
-The server also provides meta-tools (discover-tools, list-task-types, intent-query-help) that return instructional content through the standard tools interface, ensuring compatibility with all MCP clients.
+<details>
+<summary><b>Environment Variables</b></summary>
 
-**Prompts Capability**: Prompts provide instructional templates to help LLMs understand tool organization and discovery mechanisms.
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MCP_ACCESS_TOKEN` | ✅ | - | Bearer token for authentication |
+| `DOCKER_HOST` | ❌ | `unix:///var/run/docker.sock` | Docker engine connection |
+| `DOCKER_TLS_VERIFY` | ❌ | `0` | Enable TLS verification (1/0) |
+| `DOCKER_CERT_PATH` | ❌ | - | Path to TLS certificates |
+| `LOG_LEVEL` | ❌ | `INFO` | DEBUG shows context metrics |
+| `ALLOWED_ORIGINS` | ❌ | `*` | CORS origins (comma-separated) |
+| `MCP_TRANSPORT` | ❌ | `http` | Transport mode (http/sse) |
 
-**See [`docs/MCP-JSON-RPC-USAGE.md`](docs/MCP-JSON-RPC-USAGE.md) for detailed protocol documentation.**
+</details>
 
-## Configuration
+<details>
+<summary><b>Custom Tool Filtering</b></summary>
 
-### Environment Variables
-
-- `MCP_ACCESS_TOKEN` (required): Bearer token for client authentication
-- `DOCKER_HOST` (optional): Docker engine connection (default: unix:///var/run/docker.sock)
-- `DOCKER_TLS_VERIFY` (optional): Enable TLS verification (1/0)
-- `DOCKER_CERT_PATH` (optional): Path to TLS certificates
-- `MCP_TRANSPORT` (optional): Transport mode (http/sse, default: http)
-- `LOG_LEVEL` (optional): Logging level (DEBUG/INFO/WARNING/ERROR, default: INFO)
-- `ALLOWED_ORIGINS` (optional): CORS allowed origins (comma-separated)
-
-### Filter Configuration
-
-Edit `filter-config.json` to customize tool gating:
+Edit `filter-config.json` to customize which tools are available:
 
 ```json
 {
   "task_type_allowlists": {
     "container-ops": ["list-containers", "create-container", "start-container"],
-    "network-ops": ["list-networks", "create-network"]
+    "swarm-ops": ["list-services", "create-service", "scale-service"],
+    "compose-ops": ["deploy-stack", "list-stacks"]
   },
   "max_tools": 10,
-  "blocklist": ["remove-volume"]
+  "blocklist": ["remove-volume", "prune-system"]
 }
 ```
 
-Server restart required for configuration changes.
+Mount as a config in your stack:
+```yaml
+configs:
+  filter_config:
+    file: ./filter-config.json
 
-## Intent-Based Tool Discovery
-
-The server automatically detects which Docker operations you need based on natural language queries, dramatically reducing context size:
-
-- **"List running containers"** → Returns container management tools (6 tools)
-- **"Deploy docker-compose stack"** → Returns compose tools (3 tools)  
-- **"Scale web service"** → Returns swarm service tools (3 tools)
-- **"Create network"** → Returns network tools (3 tools)
-
-**No client configuration needed** - just describe what you want to do.
-
-### Learning About Tool Organization
-
-The server includes special meta-tools that provide guidance on tool organization and filtering. Call the discover-tools tool to learn about the 6 task type categories and how to access specific tools.
-
-**Example**: Use `tools/list` with `task_type: "meta-ops"` to see all available meta-tools, then call `discover-tools` to get guidance on tool discovery. This approach works with any MCP client, unlike prompts which require client-side support.
-
-## API Usage
-
-### Authentication
-
-All endpoints (except `/mcp/health`) require Bearer token authentication:
-
-```bash
-curl -H "Authorization: Bearer your-token" http://localhost:8000/mcp/tools
+services:
+  docker-mcp:
+    configs:
+      - source: filter_config
+        target: /app/filter-config.json
 ```
+</details>
 
-### Tool Discovery
+<details>
+<summary><b>Remote Docker Access</b></summary>
 
-```bash
-# Get all available tools
-curl -H "Authorization: Bearer your-token" \
-  http://localhost:8000/mcp/tools
-
-# Filter by task type
-curl -H "Authorization: Bearer your-token" \
-  "http://localhost:8000/mcp/tools?task-type=container-ops"
-```
-
-### Container Operations
-
-```bash
-# List containers
-curl -H "Authorization: Bearer your-token" \
-  http://localhost:8000/containers
-
-# Create container
-curl -X POST -H "Authorization: Bearer your-token" \
-  -H "Content-Type: application/json" \
-  -d '{"image": "nginx:alpine", "name": "web"}' \
-  http://localhost:8000/containers
-```
-
-See `specs/001-http-based-docker/contracts/` for complete API documentation and OpenAPI schemas.
-
-## Development
-
-### Running Tests
-
-```bash
-# Run all tests
-poetry run pytest
-
-# Run with coverage
-poetry run pytest --cov=app --cov-report=html
-
-# Run specific test file
-poetry run pytest tests/unit/test_docker_client.py
-```
-
-### Code Quality
-
-```bash
-# Lint and format
-poetry run ruff check .
-poetry run ruff format .
-
-# Type checking
-poetry run mypy app/
-
-# Security scanning
-poetry run bandit -r app/
-```
-
-## Remote Docker Access
-
-### TLS Connection
-
+**TLS Connection:**
 ```bash
 export DOCKER_HOST="tcp://remote-host:2376"
 export DOCKER_TLS_VERIFY="1"
 export DOCKER_CERT_PATH="/path/to/certs"
 ```
 
-### SSH Connection
-
+**SSH Connection:**
 ```bash
 export DOCKER_HOST="ssh://user@remote-host"
 ```
 
-### Tunnel with Tailscale
+**Tailscale/Wireguard:**
+```bash
+export DOCKER_HOST="tcp://100.x.y.z:2376"  # Tailscale IP
+```
+</details>
+
+<details>
+<summary><b>Building From Source</b></summary>
 
 ```bash
-# Connect via Tailscale private network
-export DOCKER_HOST="tcp://100.x.y.z:2376"
+# Clone the repository
+git clone https://github.com/yourusername/docker-swarm-mcp.git
+cd docker-swarm-mcp
+
+# Build with Docker
+docker build -t docker-swarm-mcp:latest .
+
+# Or build with Docker Compose
+docker-compose build
+
+# For development
+poetry install
+poetry run uvicorn app.main:app --reload
+```
+</details>
+
+## 🧪 Testing
+
+```bash
+# Quick health check
+curl http://localhost:8000/mcp/health
+
+# Test authentication
+curl -H "Authorization: Bearer your-token" \
+  http://localhost:8000/mcp/tools
+
+# Test with intent detection
+curl -X POST http://localhost:8000/mcp/v1 \
+  -H "Authorization: Bearer your-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/list",
+    "params": {"query": "show me running containers"},
+    "id": 1
+  }'
 ```
 
-See `docs/dependencies/tls.md`, `docs/dependencies/tailscale.md`, `docs/dependencies/ngrok.md` for detailed setup.
+## 📖 Documentation
 
-## Roadmap
+- [**Client Setup Guide**](docs/MCP-CLIENT-SETUP.md) - Configure Claude Desktop, Cursor, etc.
+- [**Quick Reference**](docs/MCP-QUICK-REFERENCE.md) - Common commands
+- [**JSON-RPC Protocol**](docs/MCP-JSON-RPC-USAGE.md) - API details
+- [**Security**](SECURITY.md) - Best practices
+- [**Roadmap**](ROADMAP.md) - Coming features
 
-See [`ROADMAP.md`](ROADMAP.md) for planned features and improvements.
+## 🤝 Contributing
 
-**Coming in v0.3.0:**
-- 🔒 Integrated Tailscale/ngrok support for secure remote access
-- 🔄 Automatic token rotation
-- 📊 Authentication monitoring and alerting
-- 📈 Prometheus metrics
+This fills a real gap in the MCP ecosystem! Contributions welcome:
 
-## Documentation
+1. **Report bugs** - Open an issue with reproduction steps
+2. **Suggest features** - Check the roadmap first
+3. **Submit PRs** - Follow existing patterns
+4. **Improve docs** - Always appreciated
+5. **Share your stacks** - Add examples to help others
 
-- **Security**: `SECURITY.md` - Security policy, best practices, and vulnerability reporting
-- **Security Audit**: `SECURITY-AUDIT-REPORT.md` - Comprehensive security scan results (Semgrep validated)
-- **Roadmap**: `ROADMAP.md` - Planned features and release timeline
-- **Changelog**: `CHANGELOG.md` - Version history and changes
-- **MCP Client Setup**: `docs/MCP-CLIENT-SETUP.md` - Complete guide for configuring MCP clients (Claude Desktop, claude-code, etc.)
-- **Quick Reference**: `docs/MCP-QUICK-REFERENCE.md` - Command cheat sheet and common workflows
-- **JSON-RPC Protocol**: `docs/MCP-JSON-RPC-USAGE.md` - Detailed protocol documentation
-- **Client Config Schema**: `docs/mcp-client-config.schema.json` - JSON schema for validation
-- **Dependencies**: `docs/dependencies/` - Reference stubs for Docker SDK, FastAPI, Pydantic, Uvicorn, Compose, Swarm, TLS, tunneling
-- **Architecture**: `specs/001-http-based-docker/plan.md` - Complete architecture and design decisions
-- **API Contracts**: `specs/001-http-based-docker/contracts/` - OpenAPI schemas for all endpoints
-- **Quickstart**: `specs/001-http-based-docker/quickstart.md` - Detailed server setup and testing guide
+**Focus areas:**
+- More Swarm-specific tools
+- Better Portainer BE/EE integration
+- Enhanced security features
+- Multi-cluster support
 
-## Architecture
+## 🙏 Acknowledgments
 
-- **FastAPI**: HTTP framework with async support
-- **docker-py**: Docker SDK for Python
-- **Pydantic**: Data validation and schema generation
-- **Tool Gating**: Pluggable filter chain (TaskType → Resource → Security)
-- **Intent Classification**: Keyword-based automatic task-type detection
-
-See `specs/001-http-based-docker/plan.md` for complete architecture documentation.
-
-## Contributing
-
-We welcome contributions! Here's how you can help:
-
-1. **Report Issues**: Found a bug? Open an issue with reproduction steps
-2. **Suggest Features**: Have an idea? Check `ROADMAP.md` or propose new features
-3. **Improve Documentation**: Clarify setup steps, add examples, fix typos
-4. **Submit Pull Requests**: Fix bugs, add features from the roadmap
-5. **Security**: Report vulnerabilities privately (see `SECURITY.md`)
-
-**Current Focus Areas** (see `ROADMAP.md`):
-- Tailscale/ngrok integration for secure remote access
-- Token rotation mechanisms
-- Authentication monitoring and alerting
-- Prometheus metrics
-
-## License
-
-MIT
+- Built on the Model Context Protocol (MCP) by Anthropic with FastAPI MCP.
+- Inspired by the need for proper Docker Swarm support in AI workflows
+- Thanks to the Docker and Swarm communities
 
 ---
 
-**Status**: ✅ Production-ready | Semgrep validated | Security audited  
-**Version**: 0.2.0 | **Next**: v0.3.0 with advanced features
+**License:** MIT | **Status:** Production Ready | **Gap Filled:** ✅
+
+*Finally, an MCP server that actually understands Docker Swarm.*

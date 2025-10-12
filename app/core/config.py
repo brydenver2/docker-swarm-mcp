@@ -48,6 +48,16 @@ class Settings:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     ALLOWED_ORIGINS: list[str] = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
+    # Tailscale configuration
+    TAILSCALE_ENABLED: bool = os.getenv("TAILSCALE_ENABLED", "false").lower() == "true"
+    TAILSCALE_AUTH_KEY: str = os.getenv("TAILSCALE_AUTH_KEY", "")
+    TAILSCALE_AUTH_KEY_FILE: str = os.getenv("TAILSCALE_AUTH_KEY_FILE", "")
+    TAILSCALE_HOSTNAME: str = os.getenv("TAILSCALE_HOSTNAME", "")
+    TAILSCALE_TAGS: str = os.getenv("TAILSCALE_TAGS", "")
+    TAILSCALE_EXTRA_ARGS: str = os.getenv("TAILSCALE_EXTRA_ARGS", "")
+    TAILSCALE_STATE_DIR: str = os.getenv("TAILSCALE_STATE_DIR", "/var/lib/tailscale")
+    TAILSCALE_TIMEOUT: int = int(os.getenv("TAILSCALE_TIMEOUT", "30"))
+
     DEBUG: bool = LOG_LEVEL == "DEBUG"
 
     def __post_init__(self):

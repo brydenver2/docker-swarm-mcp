@@ -5,16 +5,38 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # Core MCP Server Configuration
       - MCP_ACCESS_TOKEN=${MCP_ACCESS_TOKEN}
       - DOCKER_HOST=${DOCKER_HOST:-unix:///var/run/docker.sock}
       - MCP_TRANSPORT=${MCP_TRANSPORT:-http}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
+      
+      # Tailscale Configuration (disabled by default for backward compatibility)
+      - TAILSCALE_ENABLED=${TAILSCALE_ENABLED:-false}
+      - TAILSCALE_AUTH_KEY=${TAILSCALE_AUTH_KEY:-}
+      - TAILSCALE_AUTH_KEY_FILE=${TAILSCALE_AUTH_KEY_FILE:-}
+      - TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME:-docker-swarm-mcp}
+      - TAILSCALE_TAGS=${TAILSCALE_TAGS:-}
+      - TAILSCALE_EXTRA_ARGS=${TAILSCALE_EXTRA_ARGS:-}
+      - TAILSCALE_STATE_DIR=${TAILSCALE_STATE_DIR:-/var/lib/tailscale}
+      - TAILSCALE_TIMEOUT=${TAILSCALE_TIMEOUT:-30}
     volumes:
-      - /Users/bbrenner/.docker/run/docker.sock:/var/run/docker.sock
+      - ~/.docker/run/docker.sock:/var/run/docker.sock
+      # Optional: Uncomment to enable Tailscale state persistence
+      # - tailscale-state:/var/lib/tailscale
     user: "0:0"  # Run as root to access Docker socket (required for full functionality)
     # Security: Docker socket access grants significant privileges.
     # Mitigate with: strong authentication, network isolation, VPN/TLS for remote access
+    
+    # Tailscale requirements (only needed when TAILSCALE_ENABLED=true)
+    # NET_ADMIN capability is required for Tailscale network operations
+    # TUN device access is required for Tailscale VPN functionality
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/mcp/health"]
@@ -22,3 +44,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+# Optional named volume for Tailscale state persistence
+# Uncomment the volume mount above and this section to enable
+# volumes:
+#   tailscale-state:
+#     driver: local

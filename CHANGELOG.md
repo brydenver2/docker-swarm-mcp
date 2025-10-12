@@ -5,6 +5,84 @@ All notable changes to the Docker Swarm MCP Server will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-10-12
+
+This release adds optional Tailscale VPN integration for secure remote access to Docker Swarm environments. The integration provides encrypted networking while maintaining backward compatibility and comprehensive security controls.
+
+### Added
+
+- **Tailscale VPN Integration**: Optional secure networking feature
+  - Built-in Tailscale client installation in Docker image
+  - Conditional activation via `TAILSCALE_ENABLED` environment variable
+  - Automatic IP address logging in container startup logs
+  - Comprehensive status monitoring and logging in application
+  - State persistence for node identity across container restarts
+
+- **Tailscale Configuration Options**: Full control over VPN settings
+  - `TAILSCALE_ENABLED`: Master toggle (default: `false` for backward compatibility)
+  - `TAILSCALE_AUTH_KEY` / `TAILSCALE_AUTH_KEY_FILE`: Authentication methods
+  - `TAILSCALE_HOSTNAME`: Custom hostname in Tailscale network
+  - `TAILSCALE_TAGS`: Node tags for ACL policy control
+  - `TAILSCALE_EXTRA_ARGS`: Additional Tailscale command-line arguments
+  - `TAILSCALE_STATE_DIR`: Persistent state directory
+  - `TAILSCALE_TIMEOUT`: Operation timeout configuration
+
+- **Enhanced Entrypoint Script**: Robust Tailscale lifecycle management
+  - Conditional Tailscale activation based on environment configuration
+  - Secure authentication with file-based key support
+  - Graceful shutdown handling with proper cleanup
+  - Comprehensive error handling and validation
+  - Automatic IP address discovery and logging
+
+- **Docker Compose Integration**: Production-ready Tailscale configuration
+  - NET_ADMIN capability for network operations
+  - TUN device access for VPN functionality
+  - Persistent volume support for state directory
+  - Docker secrets integration for auth keys
+
+### Security
+
+- **Tailscale Security Documentation**: Comprehensive security considerations
+  - NET_ADMIN capability requirements and implications documented
+  - TUN device access security considerations
+  - Tailscale auth key management best practices
+  - Production security checklist for Tailscale deployments
+  - File-based authentication recommended over environment variables
+
+- **Security Audit Enhancement**: Updated security documentation
+  - Added Tailscale-specific security considerations to SECURITY.md
+  - Enhanced security checklist with Tailscale deployment requirements
+  - Documented security benefits of Tailscale VPN integration
+
+### Changed
+
+- **Dockerfile**: Added Tailscale installation and configuration
+  - Tailscale client installation during build process
+  - Tailscale state directory creation and permissions
+  - Non-root user access to Tailscale directories
+
+- **docker-compose.yaml**: Added Tailscale configuration options
+  - Environment variables for Tailscale integration
+  - Conditional capability and device requirements
+  - Optional volume mounting for state persistence
+
+- **env.example**: Enhanced with Tailscale configuration examples
+  - Comprehensive Tailscale environment variable documentation
+  - Production security recommendations
+  - Configuration examples for different deployment scenarios
+
+- **Documentation**: Updated all documentation with Tailscale integration
+  - README.md: Added Tailscale features, configuration, and examples
+  - SECURITY.md: Enhanced with Tailscale security considerations
+  - CHANGELOG.md: This release documentation
+
+### Fixed
+
+- **Backward Compatibility**: Tailscale integration disabled by default
+  - Existing deployments unaffected by default configuration
+  - No breaking changes to current functionality
+  - Optional feature requires explicit enablement
+
 ## [0.2.0] - 2025-10-11
 
 This release adds multiple mechanisms for tool discovery to ensure compatibility with all MCP clients. Instructional content is now available through both MCP prompts (for supporting clients) and callable meta-tools (for universal access).
@@ -35,8 +113,6 @@ This release adds multiple mechanisms for tool discovery to ensure compatibility
 - Updated `initialize` response to advertise `prompts` capability with `listChanged: false`
 - Enhanced MCP endpoint routing to handle `prompts/list` and `prompts/get` methods
 - Updated documentation to include both prompts and meta-tools usage examples and best practices
-
-## [Unreleased]
 
 ### Security
 

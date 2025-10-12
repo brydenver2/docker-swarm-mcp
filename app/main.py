@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+import subprocess
 import sys
 import time
 import uuid
@@ -28,10 +30,102 @@ from app.routers.volumes import router as volumes_router
 logger = logging.getLogger(__name__)
 
 
+def log_tailscale_status() -> None:
+    """
+    Check and log Tailscale status information.
+    
+    This function checks if Tailscale is enabled and, if so,
+    attempts to retrieve and log the Tailscale IP address and status.
+    """
+    if not settings.TAILSCALE_ENABLED:
+        logger.info("Tailscale integration: DISABLED")
+        return
+    
+    logger.info("Tailscale integration: ENABLED")
+    
+    # Check if Tailscale is installed and running
+    try:
+        # Check if Tailscale is installed
+        result = subprocess.run(
+            ["which", "tailscale"], 
+            capture_output=True, 
+            text=True, 
+            timeout=5
+        )
+        
+        if result.returncode != 0:
+            logger.warning("Tailscale is enabled but not installed or not in PATH")
+            return
+        
+        # Get Tailscale status
+        result = subprocess.run(
+            ["tailscale", "status", "--json"], 
+            capture_output=True, 
+            text=True, 
+            timeout=settings.TAILSCALE_TIMEOUT
+        )
+        
+        if result.returncode != 0:
+            logger.warning(f"Tailscale status check failed: {result.stderr.strip()}")
+            return
+        
+        # Parse the JSON output
+        try:
+            status_data = json.loads(result.stdout)
+            
+            # Extract useful information
+            if status_data.get("BackendState") == "Running":
+                logger.info("Tailscale status: CONNECTED")
+                
+                # Get Tailscale IP if available
+                if "TailscaleIPs" in status_data and status_data["TailscaleIPs"]:
+                    tailscale_ip = status_data["TailscaleIPs"][0]
+                    logger.info(f"Tailscale IP address: {tailscale_ip}")
+                else:
+                    logger.info("Tailscale IP address: Not available")
+                
+                # Log hostname if set
+                if "Self" in status_data and "HostName" in status_data["Self"]:
+                    hostname = status_data["Self"]["HostName"]
+                    logger.info(f"Tailscale hostname: {hostname}")
+                
+                # Log additional configuration
+                config_details = []
+                
+                if settings.TAILSCALE_HOSTNAME:
+                    config_details.append(f"hostname={settings.TAILSCALE_HOSTNAME}")
+                
+                if settings.TAILSCALE_TAGS:
+                    config_details.append(f"tags={settings.TAILSCALE_TAGS}")
+                
+                if settings.TAILSCALE_STATE_DIR != "/var/lib/tailscale":
+                    config_details.append(f"state_dir={settings.TAILSCALE_STATE_DIR}")
+                
+                if config_details:
+                    logger.info(f"Tailscale configuration: {', '.join(config_details)}")
+                
+            else:
+                backend_state = status_data.get("BackendState", "Unknown")
+                logger.warning(f"Tailscale status: NOT CONNECTED (BackendState: {backend_state})")
+                
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse Tailscale status JSON output")
+            
+    except subprocess.TimeoutExpired:
+        logger.warning(f"Tailscale status check timed out after {settings.TAILSCALE_TIMEOUT} seconds")
+    except FileNotFoundError:
+        logger.warning("Tailscale command not found")
+    except Exception as e:
+        logger.warning(f"Error checking Tailscale status: {str(e)}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     setup_logging()
     logger.info("Starting Docker Swarm MCP Server")
+    
+    # Log Tailscale status
+    log_tailscale_status()
     
     # Validate authentication configuration
     if not settings.TOKEN_SCOPES and not settings.MCP_ACCESS_TOKEN:

@@ -46,6 +46,19 @@ docs/
 specs/
 .specify/
 
+# AI assistant configuration and session data
+.claude/
+.claude-flow/
+.cursor/
+.kilocode/
+.opencode/
+.specify/
+.superdesign/
+.swarm/
+
+# Development specification directories
+spec/
+
 # CI/CD
 .github/
 .gitlab-ci.yml

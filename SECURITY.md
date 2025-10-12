@@ -32,12 +32,21 @@
   - 💡 **Alternative**: For read-only monitoring, mount socket as `:ro` and disable write operations
 - **Minimal Base Image**: Uses `python:3.12-slim` for reduced attack surface
 - **No Unnecessary Privileges**: Container doesn't require privileged mode
+- **Tailscale VPN Integration**: Optional secure networking with specific security considerations
+  - ⚠️ **NET_ADMIN Capability**: Required for Tailscale network operations
+  - 📝 **Why Needed**: Tailscale requires network administration privileges for VPN functionality
+  - 🔒 **Mitigations**: Strong Tailscale authentication, ACL policies, network isolation
+  - 💡 **Alternative**: Disable Tailscale (`TAILSCALE_ENABLED=false`) if not needed
 
 ### Secrets Management
 
 - **Environment Variables**: All secrets configured via environment variables
 - **Secret Redaction**: Sensitive headers redacted in logs
 - **No Hardcoded Credentials**: No default tokens or passwords in code
+- **Tailscale Auth Key Security**: Multiple options for secure authentication
+  - **File-Based Secrets**: Prefer `TAILSCALE_AUTH_KEY_FILE` over `TAILSCALE_AUTH_KEY`
+  - **Docker Secrets**: Use Docker secrets for Tailscale auth keys in production
+  - **Key Rotation**: Regular rotation of Tailscale auth keys
 
 ### Code Security
 
@@ -87,6 +96,14 @@
    - Firewall rules to restrict access
    - Consider using Tailscale ACLs
 
+8. **Tailscale Security** (when enabled)
+   - Use `TAILSCALE_AUTH_KEY_FILE` instead of environment variable
+   - Configure Tailscale ACL policies for fine-grained access control
+   - Enable state persistence with named volumes
+   - Monitor Tailscale node status and connections
+   - Rotate Tailscale auth keys periodically
+   - Use appropriate tags for node organization and access control
+
 ### Environment Variable Security
 
 **Required:**
@@ -117,6 +134,38 @@ This server requires Docker socket access to manage containers. This grants sign
   - Audit logging for all operations
   - Regular token rotation
   - Read-only mount (`:ro`) for monitoring-only deployments
+
+### Tailscale VPN Integration
+
+When Tailscale is enabled (`TAILSCALE_ENABLED=true`), additional security considerations apply:
+
+- ⚠️ **NET_ADMIN Capability**: Required for Tailscale network operations
+  - Grants network administration privileges to the container
+  - Allows modification of network interfaces and routing
+  - Required for Tailscale's VPN functionality
+
+- ⚠️ **TUN Device Access**: Required for VPN tunnel creation
+  - `/dev/net/tun` device mounted into container
+  - Enables creation of network tunnels
+
+- ⚠️ **Tailscale Auth Key**: Sensitive credential that grants network access
+  - Must be protected like other authentication tokens
+  - Grants access to your Tailscale network
+
+- ✅ **Mitigations**:
+  - Use `TAILSCALE_AUTH_KEY_FILE` instead of environment variable for production
+  - Implement Tailscale ACL policies to restrict access
+  - Use Tailscale tags for fine-grained access control
+  - Enable state persistence to maintain node identity
+  - Monitor Tailscale connections and node status
+  - Regular rotation of Tailscale auth keys
+  - Disable Tailscale when not needed (`TAILSCALE_ENABLED=false`)
+
+- 🔒 **Security Benefits**:
+  - Encrypted network traffic between nodes
+  - Zero-trust networking model
+  - Fine-grained access control via ACLs
+  - Secure remote access without public exposure
 
 ### JWT Decode Without Verification
 
