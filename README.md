@@ -18,6 +18,11 @@
 - ✅ **Production security** - Bearer tokens, TLS, remote Docker support, *Tailscale Integration (coming soon)*
 - ✅ **No bloat** - Just the tools you need, when you need them, filtered by the task at hand.
 
+
+Note on secrets and client config:
+- Do not commit secrets. Use environment variables (e.g., MCP_ACCESS_TOKEN), Docker secrets, or a secret manager.
+- The .kilocode/ directory is gitignored. If you need a local MCP client config, copy mcp.client.json.example to your local tooling and set Authorization to use a runtime value like `Bearer ${MCP_ACCESS_TOKEN}`.
+
 ## 🚀 Quick Start (2 Minutes)
 
 ### 1️⃣ Deploy to Your Swarm
