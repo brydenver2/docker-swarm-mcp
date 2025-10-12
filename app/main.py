@@ -147,6 +147,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     all_tools = tool_registry.get_all_tools()
     
     filter_config_path = Path("filter-config.json")
+    filter_config_data = None
+    
     if filter_config_path.exists():
         try:
             with filter_config_path.open() as f:
@@ -196,7 +198,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from app.mcp.intent_classifier import KeywordIntentClassifier
     
     # Load keyword mappings from filter-config.json or use defaults
-    keyword_mappings = filter_config_data.get("intent_keywords", None) if 'filter_config_data' in locals() else None
+    keyword_mappings = filter_config_data.get("intent_keywords", None) if filter_config_data else None
     intent_classifier = KeywordIntentClassifier(keyword_mappings=keyword_mappings)
     logger.info(f"Intent classifier initialized with {len(intent_classifier.get_keyword_mappings())} task types")
 
