@@ -42,6 +42,108 @@ class TestMCPProtocolCompliance:
         assert data["result"]["serverInfo"]["name"] == "docker-swarm-mcp"
         assert data["result"]["capabilities"]["tools"]["gating"] is True
 
+    def test_query_parameter_auth(self, test_client_with_mock):
+        """Test authentication via accessToken query parameter"""
+        response = test_client_with_mock.post(
+            f"/mcp/v1?accessToken={TEST_TOKEN}",
+            json={
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "params": {
+                    "clientInfo": {
+                        "name": "test-client",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": 1
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["jsonrpc"] == "2.0"
+        assert data["id"] == 1
+        assert "result" in data
+
+    def test_query_parameter_auth_alternative_name(self, test_client_with_mock):
+        """Test authentication via access_token query parameter (alternative name)"""
+        response = test_client_with_mock.post(
+            f"/mcp/v1?access_token={TEST_TOKEN}",
+            json={
+                "jsonrpc": "2.0",
+                "method": "tools/list",
+                "params": {},
+                "id": 1
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["jsonrpc"] == "2.0"
+        assert "result" in data
+        assert "tools" in data["result"]
+
+    def test_header_auth_takes_precedence(self, test_client_with_mock):
+        """Test that Authorization header takes precedence over query parameter"""
+        response = test_client_with_mock.post(
+            f"/mcp/v1?accessToken=invalid-token",
+            json={
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "params": {
+                    "clientInfo": {
+                        "name": "test-client",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": 1
+            },
+            headers={"Authorization": f"Bearer {TEST_TOKEN}"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["jsonrpc"] == "2.0"
+        assert "result" in data
+
+    def test_query_parameter_auth_invalid_token(self, test_client_with_mock):
+        """Test that invalid query parameter token is rejected"""
+        response = test_client_with_mock.post(
+            "/mcp/v1?accessToken=invalid-token",
+            json={
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "params": {
+                    "clientInfo": {
+                        "name": "test-client",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": 1
+            }
+        )
+
+        assert response.status_code == 403
+
+    def test_no_auth_provided(self, test_client_with_mock):
+        """Test that request without any auth is rejected"""
+        response = test_client_with_mock.post(
+            "/mcp/v1",
+            json={
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "params": {
+                    "clientInfo": {
+                        "name": "test-client",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": 1
+            }
+        )
+
+        assert response.status_code == 403
+
     def test_tools_list_without_task_type(self, test_client_with_mock):
         """Test tools/list without task_type parameter"""
         response = test_client_with_mock.post(

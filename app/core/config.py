@@ -71,7 +71,3 @@ class Settings:
 
 settings = Settings()
 settings.validate()
-
-
-settings = Settings()
-settings.__post_init__()

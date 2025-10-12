@@ -82,7 +82,8 @@ class JSONFormatter(logging.Formatter):
 def redact_secrets(data: dict[str, Any]) -> dict[str, Any]:
     sensitive_keys = {
         "token", "password", "secret", "api_key", "authorization",
-        "bearer", "credentials", "auth", "access_token", "refresh_token"
+        "bearer", "credentials", "auth", "access_token", "refresh_token",
+        "accesstoken"  # Handle camelCase query parameter
     }
 
     redacted = {}
@@ -90,6 +91,15 @@ def redact_secrets(data: dict[str, Any]) -> dict[str, Any]:
         # Redact if key contains sensitive terms
         if any(sensitive in key.lower() for sensitive in sensitive_keys):
             redacted[key] = "***REDACTED***"
+        # Special handling for query parameters with accessToken
+        elif key == "query_params" and isinstance(value, dict):
+            redacted_params = {}
+            for param_key, param_value in value.items():
+                if param_key.lower() in ["accesstoken", "access_token"]:
+                    redacted_params[param_key] = "***REDACTED***"
+                else:
+                    redacted_params[param_key] = param_value
+            redacted[key] = redacted_params
         # Recursively redact nested dicts
         elif isinstance(value, dict):
             redacted[key] = redact_secrets(value)

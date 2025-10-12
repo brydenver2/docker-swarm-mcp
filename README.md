@@ -44,7 +44,7 @@ version: '3.8'
 
 services:
   docker-mcp:
-    image: ghcr.io/yourusername/docker-swarm-mcp:latest
+    image: ghcr.io/khaentertainment/docker-swarm-mcp:latest
     environment:
       - MCP_ACCESS_TOKEN=${MCP_ACCESS_TOKEN:-change-me-to-secure-token}
       - LOG_LEVEL=INFO
@@ -78,7 +78,7 @@ version: '3.8'
 
 services:
   docker-mcp:
-    image: ghcr.io/yourusername/docker-swarm-mcp:latest
+    image: ghcr.io/khaentertainment/docker-swarm-mcp:latest
     environment:
       - MCP_ACCESS_TOKEN_FILE=/run/secrets/mcp_token
       - LOG_LEVEL=INFO
@@ -139,7 +139,7 @@ version: '3.8'
 
 services:
   docker-mcp:
-    image: ghcr.io/yourusername/docker-swarm-mcp:latest
+    image: ghcr.io/khaentertainment/docker-swarm-mcp:latest
     environment:
       - MCP_ACCESS_TOKEN_FILE=/run/secrets/mcp_token
       - LOG_LEVEL=INFO
@@ -194,7 +194,7 @@ version: '3.8'
 
 services:
   docker-mcp:
-    image: ghcr.io/yourusername/docker-swarm-mcp:latest
+    image: ghcr.io/khaentertainment/docker-swarm-mcp:latest
     environment:
       - MCP_ACCESS_TOKEN_FILE=/run/secrets/mcp_token
       - LOG_LEVEL=INFO
@@ -249,25 +249,124 @@ docker node update --label-add mcp=true <node-name>
 ```
 </details>
 
-### 2️⃣ Configure Your AI Assistant
+### 2\. Configure Your AI Assistant
 
-Add this to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Different AI assistants and code editors configure MCP servers in slightly different ways. Find your client in the groups below and use the corresponding JSON configuration.
+
+Remember to replace `<YOUR_SECURE_TOKEN_HERE>` with your actual token.
+
+-----
+<details open>
+<summary><b>Group A: Clients with Standard Header Support</b></summary>
+
+These clients use a more structured format that supports passing the API token securely in the request headers. **This is the recommended and most secure method.**
+
+  **Example Clients:** 
+  Claude Desktop &nbsp; • Copilot Coding Agent &nbsp; • Gemini CLI &nbsp; • Visual Studio 2022 &nbsp; • Crush &nbsp; • Opencode
+
+**Configuration:**
 
 ```json
 {
   "mcpServers": {
-    "docker": {
+    "docker-swarm-mcp": {
       "transport": {
         "type": "http",
         "url": "http://localhost:8000/mcp/v1/",
         "headers": {
-          "Authorization": "Bearer your-secure-token-here"
+          "Authorization": "Bearer <YOUR_SECURE_TOKEN_HERE>"
         }
       }
     }
   }
 }
 ```
+</details>
+<details>
+<summary><b>Group B: Clients with Simplified URL Configuration [Cursor, VS Code, etc.]</b></summary
+
+These clients often use a flatter, more modern configuration schema. If your client doesn't have a dedicated field for headers, you can pass the token directly in the URL as an `accessToken`.
+
+  * **Example Clients:** Cursor &nbsp; • VS Code • Rovo Dev CLI • Qodo Gen • Trae
+
+**Configuration:**
+
+*Note: The key name might be `url` or `serverUrl` depending on the client. Check your client's documentation if one doesn't work.*
+
+*Example using `url`:*
+
+```json
+{
+  "mcpServers": {
+    "docker-swarm-mcp": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp/v1/?accessToken=<YOUR_SECURE_TOKEN_HERE>"
+    }
+  }
+}
+```
+
+*Example for clients like **Windsurf** that use `serverUrl`:*
+
+```json
+{
+  "mcpServers": {
+    "docker-swarm-mcp": {
+      "serverUrl": "http://localhost:8000/mcp/v1/?accessToken=<YOUR_SECURE_TOKEN_HERE>"
+    }
+  }
+}
+```
+</details>
+<details>
+<summary><b>Group C: Command-Line Installation</b></summary>
+The following clients support a streamlined `mcp add` command, allowing you to register the HTTP server directly from your terminal. 🚀
+
+-----
+
+#### **Claude Code**
+
+```sh
+claude mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?accessToken=<your-secure-token-here>
+```
+
+-----
+
+#### **Gemini CLI**
+
+```sh
+gemini mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?accessToken=<your-secure-token-here>
+```
+
+-----
+
+#### **Codex CLI**
+
+```sh
+codex mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?accessToken=<your-secure-token-here>
+```
+
+-----
+
+#### **Opencode**
+
+```sh
+opencode mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?accessToken=<your-secure-token-here>
+```
+
+-----
+
+#### **Qwen Code**
+
+```sh
+qwen mcp add docker-swarm-mcp http://localhost:8000/mcp/v1/?accessToken=<your-secure-token-here>
+```
+
+**Note:** Remember to replace `<your-secure-token-here>` with your actual access token.
+</details>
+-----
+
+> **Important Note:** The examples above show the `docker-swarm-mcp` object being added inside an `mcpServers` block. Your client's configuration file might use a different top-level key (e.g., `mcp`, `servers`). Please merge this configuration into your existing settings file structure.
 
 ### 3️⃣ Start Using It!
 
@@ -430,7 +529,7 @@ export DOCKER_HOST="tcp://100.x.y.z:2376"  # Tailscale IP
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/docker-swarm-mcp.git
+git clone https://github.com/KHAEntertainment/docker-swarm-mcp.git
 cd docker-swarm-mcp
 
 # Build with Docker
