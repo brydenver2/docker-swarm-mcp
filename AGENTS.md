@@ -9,7 +9,20 @@ Auto-generated from all feature plans. Last updated: 2025-10-07
 ## Project Structure
 
 ## Commands
-cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLOGIES] pytest [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLOGIES] ruff check .
+
+# Common tasks for active technologies
+# Run from the project root
+
+```
+# Run tests
+pytest
+
+# Lint the codebase
+ruff check .
+
+# Optional: type checks (if mypy is installed)
+mypy app || true
+```
 
 ## Code Style
 Python 3.12: Follow standard conventions
