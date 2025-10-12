@@ -94,6 +94,10 @@ def _parse_scopes(token: str) -> set[str]:
     """
     Parse scopes from token or static configuration
 
+    IMPORTANT: This function assumes token authenticity has been validated
+    via HMAC comparison before calling. Do not call this function directly
+    without prior token validation.
+
     Priority:
     1. JWT token claims (if token is a JWT)
     2. Static scope mapping from TOKEN_SCOPES env var
@@ -112,7 +116,7 @@ def _parse_scopes(token: str) -> set[str]:
             return set(scopes_str.split()) if isinstance(scopes_str, str) else set(scopes_str)
         if "scopes" in payload:
             return set(payload["scopes"])
-    except Exception as e:
+    except (jwt.DecodeError, jwt.InvalidTokenError, KeyError) as e:
         # Token is not a JWT or doesn't have scope claims
         logger.debug("JWT scope parse skipped", extra={"reason": str(e)})
 
