@@ -129,13 +129,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log_tailscale_status()
     
     # Validate authentication configuration
+    # Validate authentication configuration
     if not settings.TOKEN_SCOPES and not settings.MCP_ACCESS_TOKEN:
-        logger.error("Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be configured")
-        sys.exit(1)
-    
+        raise ValueError("Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be configured")
+
     if not settings.TOKEN_SCOPES and not settings.MCP_ACCESS_TOKEN.strip():
-        logger.error("MCP_ACCESS_TOKEN cannot be empty when TOKEN_SCOPES is not configured")
-        sys.exit(1)
+        raise ValueError("MCP_ACCESS_TOKEN cannot be empty when TOKEN_SCOPES is not configured")
     
     try:
         docker_client = get_docker_client()
