@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.auth import verify_token
+from app.core.constants import APP_VERSION
 from app.schemas.system import PingResponse, SystemInfo
 
 router = APIRouter()
@@ -37,7 +38,7 @@ async def get_system_info(request: Request) -> SystemInfo:
         info = docker_client.get_info()
         
         return SystemInfo(
-            version="0.1.0",
+            version=APP_VERSION,
             os=info.get("OperatingSystem", "unknown"),
             architecture=info.get("Architecture", "unknown"),
             docker_version=info.get("ServerVersion", "unknown")
