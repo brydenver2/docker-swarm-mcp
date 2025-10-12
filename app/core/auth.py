@@ -142,4 +142,6 @@ def check_scopes(required_scopes: set[str], user_scopes: set[str]) -> bool:
     """
     if "admin" in user_scopes:
         return True
+    if not required_scopes:
+        return True
     return bool(required_scopes & user_scopes)
