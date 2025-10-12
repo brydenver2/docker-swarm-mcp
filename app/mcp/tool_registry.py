@@ -99,12 +99,11 @@ async def get_available_tools(
     
     response: dict[str, Any] = {
         "tools": [tool.model_dump() for tool in filtered_tools.values()],
-        "filters_applied": filters_applied
+        "_metadata": {
+            "filters_applied": filters_applied,
+            "context_size": context_size,
+        },
     }
-    
-    from app.core.config import settings
-    if settings.DEBUG:
-        response["context_size"] = context_size
     
     logger.info(
         f"Tool discovery: {len(filtered_tools)} tools returned",
