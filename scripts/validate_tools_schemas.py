@@ -22,7 +22,7 @@ from app.schemas import containers, networks, services, stacks, system, volumes
 TOOL_SCHEMA_MAPPING = {
     # System
     "ping": (None, system.PingResponse),
-    "info": (None, system.SystemInfoResponse),
+    "info": (None, system.SystemInfo),
     # Containers
     "list-containers": (None, list),  # List of ContainerResponse
     "create-container": (containers.ContainerCreateRequest, containers.ContainerResponse),
@@ -31,8 +31,8 @@ TOOL_SCHEMA_MAPPING = {
     "remove-container": (None, dict),
     "get-logs": (None, str),
     # Stacks
-    "deploy-compose": (stacks.ComposeDeployRequest, stacks.ComposeStackResponse),
-    "list-stacks": (None, list),  # List of ComposeStackResponse
+    "deploy-compose": (stacks.ComposeDeployRequest, stacks.ComposeDeployResponse),
+    "list-stacks": (None, list),  # List of StackSummary entries
     "remove-compose": (None, dict),
     # Services
     "list-services": (None, list),  # List of ServiceResponse
