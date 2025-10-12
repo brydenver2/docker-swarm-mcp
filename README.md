@@ -497,3 +497,4 @@ This fills a real gap in the MCP ecosystem! Contributions welcome:
 **License:** MIT | **Status:** Production Ready | **Gap Filled:** ✅
 
 *Finally, an MCP server that actually understands Docker Swarm.*
+See docs/dependencies/tailscale.md for detailed Tailscale setup.
