@@ -173,24 +173,11 @@ class DynamicToolGatingMCP:
         session_id: str
     ) -> dict[str, Any]:
         """Handle MCP initialize request"""
-        logger.info(
-            "MCP initialize request",
-            extra={
-                "request_id": request_id,
-                "session_id": session_id,
-                "client_info": params.get("clientInfo") if params else None
+# Move this up to the top of app/mcp/fastapi_mcp_integration.py alongside the other imports:
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 from app.core.constants import APP_VERSION
-
-            }
-        )
-
-        return {
-            "protocolVersion": settings.MCP_PROTOCOL_VERSION,
-            "serverInfo": {
-                "name": "docker-swarm-mcp",
-                "version": APP_VERSION
-            },
-            "capabilities": {
                 "tools": {
                     "gating": True,
                     "context_size_enforcement": True,
