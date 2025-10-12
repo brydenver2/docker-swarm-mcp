@@ -358,7 +358,7 @@ If integration fails or causes issues:
 
 **Command**:
 ```bash
-cd /Users/bbrenner/Documents/Scripting\ Projects/docker-mcp-server
+cd ~/Documents/Scripting\ Projects/docker-mcp-server
 # Add to pyproject.toml and run poetry install
 ```
 

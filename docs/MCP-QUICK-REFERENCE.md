@@ -344,7 +344,7 @@ docs/dependencies/             # Dependency reference stubs
 
 ## Resources
 
-- GitHub: [docker-swarm-mcp](https://github.com/yourusername/docker-swarm-mcp)
-- Issues: [Report a bug](https://github.com/yourusername/docker-swarm-mcp/issues)
+- GitHub: [docker-swarm-mcp](https://github.com/KHAEntertainment/docker-swarm-mcp)
+- Issues: [Report a bug](https://github.com/KHAEntertainment/docker-swarm-mcp/issues)
 - Documentation: See `docs/` directory for detailed guides
 - Tool Definitions: See `tools.yaml` for API specifications
