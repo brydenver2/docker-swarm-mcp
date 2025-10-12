@@ -112,9 +112,9 @@ def _parse_scopes(token: str) -> set[str]:
             return set(scopes_str.split()) if isinstance(scopes_str, str) else set(scopes_str)
         if "scopes" in payload:
             return set(payload["scopes"])
-    except Exception:
+    except Exception as e:
         # Token is not a JWT or doesn't have scope claims
-        pass
+        logger.debug("JWT scope parse skipped", extra={"reason": str(e)})
 
     # Try static scope mapping from environment
     if settings.TOKEN_SCOPES:
