@@ -3,13 +3,55 @@ import json
 import logging
 from typing import Any
 
-from fastapi import HTTPException, Security, status
+from fastapi import HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security.utils import get_authorization_scheme_param
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
-security = HTTPBearer()
+
+
+class HTTPBearerOrQuery(HTTPBearer):
+    """
+    Custom security class that accepts Bearer tokens from Authorization header
+    OR accessToken query parameter for simpler client configuration.
+    
+    Priority:
+    1. Authorization header (standard, takes precedence)
+    2. accessToken query parameter (fallback for simpler configs)
+    """
+    
+    async def __call__(self, request: Request) -> HTTPAuthorizationCredentials:
+        # Try Authorization header first (standard behavior)
+        authorization = request.headers.get("Authorization")
+        scheme, credentials = get_authorization_scheme_param(authorization)
+        
+        if scheme and scheme.lower() == "bearer" and credentials:
+            return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
+        
+        # Fallback to query parameter
+        access_token = (
+            request.query_params.get("accessToken") or 
+            request.query_params.get("access_token")
+        )
+        
+        if access_token:
+            logger.debug(
+                "Token extracted from query parameter",
+                extra={"query_param": "accessToken"}
+            )
+            return HTTPAuthorizationCredentials(scheme="Bearer", credentials=access_token)
+        
+        # No valid token found
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+security = HTTPBearerOrQuery()
 
 
 async def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> str:

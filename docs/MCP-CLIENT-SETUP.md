@@ -72,7 +72,7 @@ curl -H "Authorization: Bearer your-secure-token-here" \
 
 Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
 
-**Minimal Configuration:**
+**Standard Configuration (Header-based):**
 
 ```json
 {
@@ -88,7 +88,47 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
 }
 ```
 
+**Simple Configuration (Query Parameter):**
+
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "transport": "http",
+      "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
+    }
+  }
+}
+```
+
+**Alternative Simple Format:**
+
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
+    }
+  }
+}
+```
+
+**serverUrl Format:**
+
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "serverUrl": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
+    }
+  }
+}
+```
+
 > **Note**: The trailing slash in `/mcp/v1/` is required for proper routing.
+> 
+> **Authentication Priority**: Authorization header takes precedence over query parameters if both are provided.
 
 **Kilo Code / Cursor Configuration:**
 
@@ -107,6 +147,20 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
 }
 ```
 
+**Kilo Code / Cursor (Simple Format):**
+
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "type": "streamable-http",
+      "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here",
+      "disabled": false
+    }
+  }
+}
+```
+
 **Remote Server (ngrok/Tailscale):**
 
 ```json
@@ -118,6 +172,19 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       }
+    }
+  }
+}
+```
+
+**Remote Server (Simple Format):**
+
+```json
+{
+  "mcpServers": {
+    "docker-remote": {
+      "transport": "http",
+      "url": "https://abc123.ngrok.io/mcp/v1/?accessToken=your-secure-token-here"
     }
   }
 }
@@ -180,6 +247,21 @@ poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
 }
 ```
 
+**Claude Desktop (Simple Format):**
+
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "transport": {
+        "type": "http",
+        "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
+      }
+    }
+  }
+}
+```
+
 ---
 
 ### claude-code CLI
@@ -205,6 +287,19 @@ claude-code mcp add docker \
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       }
+    }
+  }
+}
+```
+
+**Manual Configuration (Simple Format):**
+
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "transport": "http",
+      "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
     }
   }
 }

@@ -251,6 +251,7 @@ docker node update --label-add mcp=true <node-name>
 
 ### 2️⃣ Configure Your AI Assistant
 
+**Standard Configuration:**
 Add this to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
@@ -264,6 +265,32 @@ Add this to your Claude Desktop config (`~/Library/Application Support/Claude/cl
           "Authorization": "Bearer your-secure-token-here"
         }
       }
+    }
+  }
+}
+```
+
+**Simple Configuration (No Headers):**
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "transport": {
+        "type": "http",
+        "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
+      }
+    }
+  }
+}
+```
+
+**Alternative Simple Format:**
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
     }
   }
 }
