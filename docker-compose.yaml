@@ -1,8 +1,7 @@
 services:
   mcp-server:
     build: .
-    container_name: docker-mcp-server
-    user: root
+    container_name: docker-swarm-mcp
     ports:
       - "8000:8000"
     environment:
@@ -10,13 +9,16 @@ services:
       - DOCKER_HOST=${DOCKER_HOST:-unix:///var/run/docker.sock}
       - MCP_TRANSPORT=${MCP_TRANSPORT:-http}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /Users/bbrenner/.docker/run/docker.sock:/var/run/docker.sock
+    user: "0:0"  # Run as root to access Docker socket (required for full functionality)
+    # Security: Docker socket access grants significant privileges.
+    # Mitigate with: strong authentication, network isolation, VPN/TLS for remote access
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/mcp/health"]
       interval: 30s
-      timeout: 3s
+      timeout: 5s
       retries: 3
-      start_period: 5s
+      start_period: 10s

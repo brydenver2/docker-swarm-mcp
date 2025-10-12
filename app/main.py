@@ -33,6 +33,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     setup_logging()
     logger.info("Starting Docker MCP Server")
     
+    # Validate authentication configuration
+    if not settings.TOKEN_SCOPES and not settings.MCP_ACCESS_TOKEN:
+        logger.error("Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be configured")
+        sys.exit(1)
+    
+    if not settings.TOKEN_SCOPES and not settings.MCP_ACCESS_TOKEN.strip():
+        logger.error("MCP_ACCESS_TOKEN cannot be empty when TOKEN_SCOPES is not configured")
+        sys.exit(1)
+    
     try:
         docker_client = get_docker_client()
         logger.info("Docker client validated successfully")
@@ -88,10 +97,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         all_tools=all_tools,
         config=filter_config
     )
+
+    # Initialize IntentClassifier
+    from app.mcp.intent_classifier import KeywordIntentClassifier
     
+    # Load keyword mappings from filter-config.json or use defaults
+    keyword_mappings = filter_config_data.get("intent_keywords", None) if 'filter_config_data' in locals() else None
+    intent_classifier = KeywordIntentClassifier(keyword_mappings=keyword_mappings)
+    logger.info(f"Intent classifier initialized with {len(intent_classifier.get_keyword_mappings())} task types")
+
+    # Initialize DynamicToolGatingMCP once at startup
+    from app.mcp.fastapi_mcp_integration import DynamicToolGatingMCP
+    mcp_server = DynamicToolGatingMCP(tool_registry, tool_gate_controller, intent_classifier)
+
     app.state.docker_client = docker_client
     app.state.tool_registry = tool_registry
     app.state.tool_gate_controller = tool_gate_controller
+    app.state.mcp_server = mcp_server
+    app.state.intent_classifier = intent_classifier
     
     if "*" in settings.ALLOWED_ORIGINS:
         logger.warning(
@@ -112,7 +135,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="Docker MCP Server",
     description="HTTP-based Model Context Protocol server for Docker operations",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan
 )
 
@@ -136,6 +159,7 @@ async def log_requests(request: Request, call_next):
     
     duration_ms = int((time.time() - start_time) * 1000)
     
+    # Create log record with redacted headers
     log_record = logging.LogRecord(
         name=__name__,
         level=logging.INFO,
@@ -148,6 +172,12 @@ async def log_requests(request: Request, call_next):
     log_record.request_id = request_id
     log_record.duration_ms = duration_ms
     log_record.status = response.status_code
+    
+    # Redact sensitive headers before logging
+    from app.core.logging import redact_secrets
+    headers_dict = dict(request.headers)
+    redacted_headers = redact_secrets(headers_dict)
+    log_record.headers = redacted_headers
     
     path = request.url.path
     if path.startswith("/containers"):
@@ -185,4 +215,4 @@ app.include_router(volumes_router, tags=["Volumes"])
 
 @app.get("/")
 async def root() -> dict[str, str]:
-    return {"message": "Docker MCP Server", "version": "0.1.0"}
+    return {"message": "Docker MCP Server", "version": "0.2.0"}

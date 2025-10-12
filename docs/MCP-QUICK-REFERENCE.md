@@ -25,7 +25,7 @@ curl http://localhost:8000/mcp/health
     "docker": {
       "transport": {
         "type": "http",
-        "url": "http://localhost:8000",
+        "url": "http://localhost:8000/mcp/v1/",
         "headers": {
           "Authorization": "Bearer your-token-here"
         }
@@ -41,27 +41,32 @@ curl http://localhost:8000/mcp/health
 # Add server
 claude-code mcp add docker \
   --transport http \
-  --url http://localhost:8000 \
-  --header "Authorization: Bearer your-token-here"
-
-# Add with task filtering
-claude-code mcp add docker-containers \
-  --transport http \
-  --url "http://localhost:8000/mcp/tools?task-type=container-ops" \
+  --url http://localhost:8000/mcp/v1/ \
   --header "Authorization: Bearer your-token-here"
 ```
 
-### opencode.json (Manual)
+### Kilo Code / Cursor
+
+**File:** `.kilocode/mcp.json` (project-specific)
 
 ```json
 {
   "mcpServers": {
     "docker": {
-      "transport": "http",
-      "url": "http://localhost:8000",
+      "type": "streamable-http",
+      "url": "http://localhost:8000/mcp/v1/",
       "headers": {
         "Authorization": "Bearer your-token-here"
-      }
+      },
+      "alwaysAllow": [
+        "ping", "info", "list-containers", "create-container",
+        "start-container", "stop-container", "remove-container",
+        "get-logs", "deploy-compose", "list-stacks", "remove-compose",
+        "list-services", "scale-service", "remove-service",
+        "list-networks", "create-network", "remove-network",
+        "list-volumes", "create-volume", "remove-volume"
+      ],
+      "disabled": false
     }
   }
 }
@@ -186,7 +191,7 @@ tailscale ip -4  # e.g., 100.101.102.103
   "mcpServers": {
     "docker-remote": {
       "transport": "http",
-      "url": "http://100.101.102.103:8000",
+      "url": "http://100.101.102.103:8000/mcp/v1/",
       "headers": {
         "Authorization": "Bearer your-token-here"
       }
@@ -206,7 +211,7 @@ ngrok http 8000
   "mcpServers": {
     "docker-remote": {
       "transport": "http",
-      "url": "https://abc123.ngrok.io",
+      "url": "https://abc123.ngrok.io/mcp/v1/",
       "headers": {
         "Authorization": "Bearer your-token-here"
       }
@@ -331,15 +336,15 @@ docs/dependencies/             # Dependency reference stubs
 
 ## Version Info
 
-- **Server Version**: 0.1.0
+- **Server Version**: 0.2.0
 - **Python**: 3.12+
 - **Docker Engine**: 24+
 - **MCP Protocol**: HTTP/SSE transport
-- **Tool Count**: 20 tools across 6 task types
+- **Tool Count**: 23 tools across 7 task types
 
 ## Resources
 
-- GitHub: [docker-mcp-server](https://github.com/yourusername/docker-mcp-server)
-- Issues: [Report a bug](https://github.com/yourusername/docker-mcp-server/issues)
+- GitHub: [docker-swarm-mcp](https://github.com/yourusername/docker-swarm-mcp)
+- Issues: [Report a bug](https://github.com/yourusername/docker-swarm-mcp/issues)
 - Documentation: See `docs/` directory for detailed guides
 - Tool Definitions: See `tools.yaml` for API specifications

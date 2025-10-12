@@ -4,16 +4,35 @@ This guide shows how to configure MCP clients (Claude Desktop, claude-code, etc.
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-- [Configuration Formats](#configuration-formats)
-  - [HTTP Transport](#http-transport)
-  - [SSE Transport](#sse-transport)
-- [Client-Specific Examples](#client-specific-examples)
-  - [Claude Desktop](#claude-desktop)
-  - [claude-code CLI](#claude-code-cli)
-  - [Custom MCP Clients](#custom-mcp-clients)
-- [Security Best Practices](#security-best-practices)
-- [Troubleshooting](#troubleshooting)
+- [MCP Client Setup Guide](#mcp-client-setup-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Quick Start](#quick-start)
+    - [1. Start the Docker MCP Server](#1-start-the-docker-mcp-server)
+    - [2. Configure Your MCP Client](#2-configure-your-mcp-client)
+    - [3. Test the Connection](#3-test-the-connection)
+  - [Configuration Formats](#configuration-formats)
+    - [HTTP Transport](#http-transport)
+    - [SSE Transport](#sse-transport)
+  - [Client-Specific Examples](#client-specific-examples)
+    - [Claude Desktop](#claude-desktop)
+    - [claude-code CLI](#claude-code-cli)
+    - [Custom MCP Clients](#custom-mcp-clients)
+  - [Security Best Practices](#security-best-practices)
+    - [1. Token Management](#1-token-management)
+    - [2. Network Security](#2-network-security)
+    - [3. CORS Configuration](#3-cors-configuration)
+    - [4. TLS/HTTPS](#4-tlshttps)
+  - [Troubleshooting](#troubleshooting)
+    - [Connection Issues](#connection-issues)
+    - [Context Size Issues](#context-size-issues)
+    - [Performance Issues](#performance-issues)
+  - [Intent-Based Tool Discovery (Recommended)](#intent-based-tool-discovery-recommended)
+    - [Single Server Configuration](#single-server-configuration)
+    - [How It Works](#how-it-works)
+    - [Example Workflow](#example-workflow)
+    - [Migration from Multi-Server Setup](#migration-from-multi-server-setup)
+    - [Kilo Code / Cursor Configuration](#kilo-code--cursor-configuration)
+  - [Additional Resources](#additional-resources)
 
 ---
 
@@ -50,7 +69,7 @@ curl -H "Authorization: Bearer your-secure-token-here" \
 
 ### HTTP Transport
 
-Standard HTTP REST API with Bearer token authentication.
+Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
 
 **Minimal Configuration:**
 
@@ -59,7 +78,7 @@ Standard HTTP REST API with Bearer token authentication.
   "mcpServers": {
     "docker": {
       "transport": "http",
-      "url": "http://localhost:8000",
+      "url": "http://localhost:8000/mcp/v1/",
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       }
@@ -68,24 +87,20 @@ Standard HTTP REST API with Bearer token authentication.
 }
 ```
 
-**Full Configuration with Task-Type Filtering:**
+> **Note**: The trailing slash in `/mcp/v1/` is required for proper routing.
+
+**Kilo Code / Cursor Configuration:**
 
 ```json
 {
   "mcpServers": {
     "docker": {
-      "transport": "http",
-      "url": "http://localhost:8000",
+      "type": "streamable-http",
+      "url": "http://localhost:8000/mcp/v1/",
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       },
-      "endpoints": {
-        "tools": "/mcp/tools",
-        "health": "/mcp/health"
-      },
-      "queryParams": {
-        "task-type": "container-ops"
-      }
+      "disabled": false
     }
   }
 }
@@ -98,7 +113,7 @@ Standard HTTP REST API with Bearer token authentication.
   "mcpServers": {
     "docker-remote": {
       "transport": "http",
-      "url": "https://abc123.ngrok.io",
+      "url": "https://abc123.ngrok.io/mcp/v1/",
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       }
@@ -109,7 +124,7 @@ Standard HTTP REST API with Bearer token authentication.
 
 ### SSE Transport
 
-Server-Sent Events for streaming responses (optional).
+Server-Sent Events for streaming responses (optional, not commonly used).
 
 **Configuration:**
 
@@ -118,7 +133,7 @@ Server-Sent Events for streaming responses (optional).
   "mcpServers": {
     "docker": {
       "transport": "sse",
-      "url": "http://localhost:8000",
+      "url": "http://localhost:8000/mcp/v1/",
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       }
@@ -126,6 +141,8 @@ Server-Sent Events for streaming responses (optional).
   }
 }
 ```
+
+> **Note**: Most MCP clients use the standard HTTP transport with JSON-RPC 2.0.
 
 **Server-side setup:**
 
@@ -150,53 +167,9 @@ poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
 {
   "mcpServers": {
     "docker": {
-      "command": "curl",
-      "args": [
-        "-H", "Authorization: Bearer your-secure-token-here",
-        "http://localhost:8000/mcp/tools"
-      ],
-      "env": {}
-    }
-  }
-}
-```
-
-**Alternative: Using HTTP Transport (Recommended):**
-
-```json
-{
-  "mcpServers": {
-    "docker": {
       "transport": {
         "type": "http",
-        "url": "http://localhost:8000",
-        "headers": {
-          "Authorization": "Bearer your-secure-token-here"
-        }
-      }
-    }
-  }
-}
-```
-
-**With Task-Type Filtering:**
-
-```json
-{
-  "mcpServers": {
-    "docker-containers": {
-      "transport": {
-        "type": "http",
-        "url": "http://localhost:8000/mcp/tools?task-type=container-ops",
-        "headers": {
-          "Authorization": "Bearer your-secure-token-here"
-        }
-      }
-    },
-    "docker-stacks": {
-      "transport": {
-        "type": "http",
-        "url": "http://localhost:8000/mcp/tools?task-type=compose-ops",
+        "url": "http://localhost:8000/mcp/v1/",
         "headers": {
           "Authorization": "Bearer your-secure-token-here"
         }
@@ -216,23 +189,7 @@ poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
 # Add Docker MCP server to opencode.json
 claude-code mcp add docker \
   --transport http \
-  --url http://localhost:8000 \
-  --header "Authorization: Bearer your-secure-token-here"
-```
-
-**Add with Task-Type Filtering:**
-
-```bash
-# Container operations only
-claude-code mcp add docker-containers \
-  --transport http \
-  --url "http://localhost:8000/mcp/tools?task-type=container-ops" \
-  --header "Authorization: Bearer your-secure-token-here"
-
-# Compose stack operations only
-claude-code mcp add docker-stacks \
-  --transport http \
-  --url "http://localhost:8000/mcp/tools?task-type=compose-ops" \
+  --url http://localhost:8000/mcp/v1/ \
   --header "Authorization: Bearer your-secure-token-here"
 ```
 
@@ -243,7 +200,7 @@ claude-code mcp add docker-stacks \
   "mcpServers": {
     "docker": {
       "transport": "http",
-      "url": "http://localhost:8000",
+      "url": "http://localhost:8000/mcp/v1/",
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       }
@@ -264,7 +221,7 @@ export DOCKER_MCP_TOKEN="your-secure-token-here"
   "mcpServers": {
     "docker": {
       "transport": "http",
-      "url": "http://localhost:8000",
+      "url": "http://localhost:8000/mcp/v1/",
       "headers": {
         "Authorization": "Bearer ${DOCKER_MCP_TOKEN}"
       }
@@ -550,46 +507,147 @@ ping your-server-ip
 
 ---
 
-## Task-Type Reference
+## Intent-Based Tool Discovery (Recommended)
 
-Available task types for filtering:
+The recommended approach is to use a **single MCP server configuration** and let the server automatically filter tools based on your natural language queries.
 
-- `container-ops` - Container lifecycle operations (6 tools)
-- `compose-ops` - Compose stack deployment (3 tools)
-- `service-ops` - Swarm service management (3 tools)
-- `network-ops` - Network management (3 tools)
-- `volume-ops` - Volume management (3 tools)
-- `system-ops` - System info and health checks (2 tools)
-
-**Example: Multi-context setup for different workflows**
+### Single Server Configuration
 
 ```json
 {
   "mcpServers": {
-    "docker-dev": {
+    "docker": {
       "transport": "http",
-      "url": "http://localhost:8000/mcp/tools?task-type=container-ops",
+      "url": "http://localhost:8000/mcp/v1/",
       "headers": {
-        "Authorization": "Bearer ${DOCKER_MCP_TOKEN}"
-      }
-    },
-    "docker-deploy": {
-      "transport": "http",
-      "url": "http://localhost:8000/mcp/tools?task-type=compose-ops",
-      "headers": {
-        "Authorization": "Bearer ${DOCKER_MCP_TOKEN}"
-      }
-    },
-    "docker-ops": {
-      "transport": "http",
-      "url": "http://localhost:8000/mcp/tools?task-type=system-ops",
-      "headers": {
-        "Authorization": "Bearer ${DOCKER_MCP_TOKEN}"
+        "Authorization": "Bearer your-token-here"
       }
     }
   }
 }
 ```
+
+### How It Works
+
+1. **No task-type configuration needed**: The server analyzes your queries automatically
+2. **Dynamic filtering**: Each request returns only relevant tools (2-6 instead of 22)
+3. **Natural language**: Describe what you want to do in plain language
+4. **Optimal context usage**: Dramatically reduces context size without manual configuration
+
+### Example Workflow
+
+```
+User: "Show me all running containers"
+→ Server returns: list-containers, get-logs, start-container, stop-container (4 tools)
+
+User: "Deploy my docker-compose stack"
+→ Server returns: deploy-compose, list-stacks, remove-compose (3 tools)
+
+User: "Scale the web service to 5 replicas"
+→ Server returns: list-services, scale-service, remove-service (3 tools)
+```
+
+### Migration from Multi-Server Setup
+
+**Before (Flawed Approach)**:
+```json
+{
+  "docker-containers": {"url": "...", "headers": {"X-Task-Type": "container-ops"}},
+  "docker-networks": {"url": "...", "headers": {"X-Task-Type": "network-ops"}},
+  "docker-volumes": {"url": "...", "headers": {"X-Task-Type": "volume-ops"}}
+}
+```
+❌ **Problem**: All 23 tools still loaded across multiple connections, no real context reduction
+
+**After (Intent-Based Approach)**:
+```json
+{
+  "docker": {
+    "url": "http://localhost:8000/mcp/v1/",
+    "headers": {"Authorization": "Bearer your-token"}
+  }
+}
+```
+✅ **Solution**: Single connection, automatic filtering, 2-6 tools per request
+
+### Kilo Code / Cursor Configuration
+
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "type": "streamable-http",
+      "url": "http://localhost:8000/mcp/v1/",
+      "headers": {
+        "Authorization": "Bearer your-token-here"
+      },
+      "disabled": false
+    }
+  }
+}
+```
+
+**Note**: Remove the `alwaysAllow` array - it's no longer needed with intent-based discovery.
+
+---
+
+## Meta-Tools for Universal Compatibility
+
+The server provides special meta-tools that work with **all MCP clients**, regardless of prompt support. These tools return instructional content to help you discover and access all available tools.
+
+### Available Meta-Tools
+
+The meta-tools are available in the `meta-ops` task type and include:
+
+1. **`discover-tools`**: Learn about all 23 tools and how they're organized into 7 task types
+2. **`list-task-types`**: Get detailed information about each task type category
+3. **`intent-query-help`**: Understand how intent-based tool discovery works
+
+### Using Meta-Tools
+
+```bash
+# List meta-tools
+curl -X POST http://localhost:8000/mcp/v1 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/list",
+    "params": {"task_type": "meta-ops"},
+    "id": 1
+  }'
+
+# Call discover-tools to learn about tool organization
+curl -X POST http://localhost:8000/mcp/v1 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "discover-tools",
+      "arguments": {}
+    },
+    "id": 1
+  }'
+```
+
+### When to Use Meta-Tools
+
+- **Client Compatibility**: Works with any MCP client (Claude Desktop, claude-code, custom clients)
+- **No Prompt Support Required**: Unlike MCP prompts, meta-tools work through the standard tools interface
+- **Structured Learning**: Get comprehensive information about tool organization and discovery
+- **Universal Access**: Same content available through prompts for clients that support them
+
+### Example Response
+
+The `discover-tools` tool returns structured JSON showing:
+- All 7 task types with descriptions
+- Intent keywords for automatic discovery
+- Tool counts per category
+- Best practices for efficient tool usage
+
+This ensures you can access all server capabilities regardless of your MCP client's feature support.
 
 ---
 

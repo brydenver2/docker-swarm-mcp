@@ -1,9 +1,9 @@
-# docker-mcp-server Development Guidelines
+# docker-swarm-mcp Development Guidelines
 
 Auto-generated from all feature plans. Last updated: 2025-10-07
 
 ## Active Technologies
-- Python 3.12 + FastAPI, Uvicorn, docker-py SDK, Pydantic (001-http-based-docker)
+- Python 3.12 + FastAPI, Uvicorn, docker-py SDK, Pydantic
 
 ## Project Structure
 ```
@@ -18,7 +18,10 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.12: Follow standard conventions
 
 ## Recent Changes
-- 001-http-based-docker: Added Python 3.12 + FastAPI, Uvicorn, docker-py SDK, Pydantic
+- Added Python 3.12 + FastAPI, Uvicorn, docker-py SDK, Pydantic
+- Implemented MCP JSON-RPC 2.0 protocol with tool gating and schema validation
+- Enhanced security with token-based authentication and scope validation
+- Added comprehensive error handling and retry mechanisms
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

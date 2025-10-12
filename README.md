@@ -1,14 +1,39 @@
-# Docker MCP Server
+# Docker Swarm MCP Server
 
-HTTP-based Model Context Protocol (MCP) server for Docker operations with context-preserving tool gating.
+![Semgrep](https://img.shields.io/badge/Scanned%20with-Semgrep-brightgreen?logo=semgrep) ![Code Reviewed by CodeRabbit](https://img.shields.io/badge/Code%20Reviewed%20by-CodeRabbit-000000?style=flat-square&logo=appveyor&logoColor=white&color=FF570A)
+
+
+Streamable-HTTP-based Model Context Protocol (MCP) server for Docker operations with context-preserving tool gating. Let your agents focus their context on your project not tool description! 
 
 ## Features
 
+- **Intent-Based Tool Discovery**: Automatic task-type detection from natural language queries to avoid context overload from bulk tool descriptions
+- **📚 Instructional Content**: Built-in guidance through meta-tools and prompts for discovering and accessing all tools
+- **Dynamic Context Optimization**: Returns only 2-6 relevant tools per request instead of all 23, keeping context size under control.
 - **Secure Remote Access**: Access token authentication for MCP clients
-- **Context-Efficient Tool Discovery**: Tool gating reduces context from 45K+ to ≤5K tokens
 - **Docker Operations**: Containers, Compose stacks, Swarm services, networks, volumes, system info
 - **Multi-Transport Support**: HTTP (default) and SSE fallback
 - **Remote Docker Engines**: Local socket, TLS, and SSH connections
+
+### Intent-Based Tool Discovery
+
+The server automatically filters tools based on your queries:
+
+```bash
+# The server automatically filters tools based on your queries
+curl -X POST http://localhost:8000/mcp/v1 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/list",
+    "params": {"query": "show me running containers"},
+    "id": 1
+  }'
+
+# Returns only container-ops tools (4-6 tools instead of 23)
+```
+
 
 ## Quick Start
 
@@ -18,7 +43,17 @@ HTTP-based Model Context Protocol (MCP) server for Docker operations with contex
 - Poetry
 - Docker Engine 24+
 
-### Installation
+### Docker Installation (Recommended)
+
+```bash
+# Build the **container**
+docker build -t docker-swarm-mcp .
+
+# Run with Docker Compose
+docker-compose up -d
+```
+
+### Developer Installation
 
 ```bash
 # Install dependencies
@@ -36,16 +71,6 @@ export LOG_LEVEL="INFO"  # DEBUG for context size metrics
 poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### Docker Setup
-
-```bash
-# Build the container
-docker build -t docker-mcp-server .
-
-# Run with Docker Compose
-docker-compose up -d
-```
-
 ## MCP Client Setup
 
 Once the server is running, configure your MCP client to connect:
@@ -57,10 +82,10 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "mcp_docker": {
+    "docker": {
       "transport": {
         "type": "http",
-        "url": "http://localhost:8000",
+        "url": "http://localhost:8000/mcp/v1/",
         "headers": {
           "Authorization": "Bearer your-secure-token-here"
         }
@@ -70,28 +95,50 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 }
 ```
 
+### Kilo Code / Cursor
+
+Add to `.kilocode/mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "type": "streamable-http",
+      "url": "http://localhost:8000/mcp/v1/",
+      "headers": {
+        "Authorization": "Bearer your-secure-token-here"
+      }
+    }
+  }
+}
+```
+
 ### claude-code CLI
 
 ```bash
-claude-code mcp add docker \
+claude mcp add docker \
   --transport http \
-  --url http://localhost:8000 \
-  --header "Authorization: Bearer your-secure-token-here"
-```
-
-### Task-Type Filtering (Reduce Context)
-
-Filter tools by category to reduce context usage:
-
-```bash
-# Container operations only (6 tools)
-claude-code mcp add docker-containers \
-  --transport http \
-  --url "http://localhost:8000/mcp/tools?task-type=container-ops" \
+  --url http://localhost:8000/mcp/v1/ \
   --header "Authorization: Bearer your-secure-token-here"
 ```
 
 **See [`docs/MCP-CLIENT-SETUP.md`](docs/MCP-CLIENT-SETUP.md) for complete configuration examples.**
+
+## **Protocol**
+
+This server implements the **Model Context Protocol (MCP) JSON-RPC 2.0** specification:
+
+- **Endpoint**: `POST /mcp/v1/` (note the trailing slash)
+- **Protocol**: JSON-RPC 2.0 over HTTP
+- **Methods**: `initialize`, `tools/list`, `tools/call`, `prompts/list`, `prompts/get`
+- **Authentication**: Bearer token in `Authorization` header
+- **Response Format**: Compliant with JSON-RPC 2.0 (result OR error, never both)
+
+The server also provides meta-tools (discover-tools, list-task-types, intent-query-help) that return instructional content through the standard tools interface, ensuring compatibility with all MCP clients.
+
+**Prompts Capability**: Prompts provide instructional templates to help LLMs understand tool organization and discovery mechanisms.
+
+**See [`docs/MCP-JSON-RPC-USAGE.md`](docs/MCP-JSON-RPC-USAGE.md) for detailed protocol documentation.**
 
 ## Configuration
 
@@ -121,6 +168,23 @@ Edit `filter-config.json` to customize tool gating:
 ```
 
 Server restart required for configuration changes.
+
+## Intent-Based Tool Discovery
+
+The server automatically detects which Docker operations you need based on natural language queries, dramatically reducing context size:
+
+- **"List running containers"** → Returns container management tools (6 tools)
+- **"Deploy docker-compose stack"** → Returns compose tools (3 tools)  
+- **"Scale web service"** → Returns swarm service tools (3 tools)
+- **"Create network"** → Returns network tools (3 tools)
+
+**No client configuration needed** - just describe what you want to do.
+
+### Learning About Tool Organization
+
+The server includes special meta-tools that provide guidance on tool organization and filtering. Call the discover-tools tool to learn about the 6 task type categories and how to access specific tools.
+
+**Example**: Use `tools/list` with `task_type: "meta-ops"` to see all available meta-tools, then call `discover-tools` to get guidance on tool discovery. This approach works with any MCP client, unlike prompts which require client-side support.
 
 ## API Usage
 
@@ -158,7 +222,7 @@ curl -X POST -H "Authorization: Bearer your-token" \
   http://localhost:8000/containers
 ```
 
-See `docs/MCP-CLIENT-SETUP.md` for complete API usage examples.
+See `specs/001-http-based-docker/contracts/` for complete API documentation and OpenAPI schemas.
 
 ## Development
 
@@ -214,12 +278,30 @@ export DOCKER_HOST="tcp://100.x.y.z:2376"
 
 See `docs/dependencies/tls.md`, `docs/dependencies/tailscale.md`, `docs/dependencies/ngrok.md` for detailed setup.
 
+## Roadmap
+
+See [`ROADMAP.md`](ROADMAP.md) for planned features and improvements.
+
+**Coming in v0.3.0:**
+- 🔒 Integrated Tailscale/ngrok support for secure remote access
+- 🔄 Automatic token rotation
+- 📊 Authentication monitoring and alerting
+- 📈 Prometheus metrics
+
 ## Documentation
 
+- **Security**: `SECURITY.md` - Security policy, best practices, and vulnerability reporting
+- **Security Audit**: `SECURITY-AUDIT-REPORT.md` - Comprehensive security scan results (Semgrep validated)
+- **Roadmap**: `ROADMAP.md` - Planned features and release timeline
+- **Changelog**: `CHANGELOG.md` - Version history and changes
 - **MCP Client Setup**: `docs/MCP-CLIENT-SETUP.md` - Complete guide for configuring MCP clients (Claude Desktop, claude-code, etc.)
 - **Quick Reference**: `docs/MCP-QUICK-REFERENCE.md` - Command cheat sheet and common workflows
+- **JSON-RPC Protocol**: `docs/MCP-JSON-RPC-USAGE.md` - Detailed protocol documentation
 - **Client Config Schema**: `docs/mcp-client-config.schema.json` - JSON schema for validation
 - **Dependencies**: `docs/dependencies/` - Reference stubs for Docker SDK, FastAPI, Pydantic, Uvicorn, Compose, Swarm, TLS, tunneling
+- **Architecture**: `specs/001-http-based-docker/plan.md` - Complete architecture and design decisions
+- **API Contracts**: `specs/001-http-based-docker/contracts/` - OpenAPI schemas for all endpoints
+- **Quickstart**: `specs/001-http-based-docker/quickstart.md` - Detailed server setup and testing guide
 
 ## Architecture
 
@@ -227,8 +309,31 @@ See `docs/dependencies/tls.md`, `docs/dependencies/tailscale.md`, `docs/dependen
 - **docker-py**: Docker SDK for Python
 - **Pydantic**: Data validation and schema generation
 - **Tool Gating**: Pluggable filter chain (TaskType → Resource → Security)
-- **Context Optimization**: Reduces tool context from 45K+ to ≤5K tokens through task-type filtering
+- **Intent Classification**: Keyword-based automatic task-type detection
+
+See `specs/001-http-based-docker/plan.md` for complete architecture documentation.
+
+## Contributing
+
+We welcome contributions! Here's how you can help:
+
+1. **Report Issues**: Found a bug? Open an issue with reproduction steps
+2. **Suggest Features**: Have an idea? Check `ROADMAP.md` or propose new features
+3. **Improve Documentation**: Clarify setup steps, add examples, fix typos
+4. **Submit Pull Requests**: Fix bugs, add features from the roadmap
+5. **Security**: Report vulnerabilities privately (see `SECURITY.md`)
+
+**Current Focus Areas** (see `ROADMAP.md`):
+- Tailscale/ngrok integration for secure remote access
+- Token rotation mechanisms
+- Authentication monitoring and alerting
+- Prometheus metrics
 
 ## License
 
 MIT
+
+---
+
+**Status**: ✅ Production-ready | Semgrep validated | Security audited  
+**Version**: 0.2.0 | **Next**: v0.3.0 with advanced features

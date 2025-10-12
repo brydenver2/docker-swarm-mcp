@@ -40,24 +40,38 @@ async def verify_token_with_scopes(
     """
     Verify token and extract scopes for MCP endpoint authorization
 
-    Scopes can come from:
-    1. JWT token claims (if using JWT)
-    2. Static scope mapping based on token
-    3. Environment variable scope configuration
+    Supports:
+    1. Multiple tokens with per-token scopes (TOKEN_SCOPES JSON mapping)
+    2. JWT token claims (if using JWT)
+    3. Single shared token (MCP_ACCESS_TOKEN with default admin scope)
 
     Returns:
         Set of scope strings (e.g., {"admin", "container-ops", "read-only"})
     """
+    token = credentials.credentials
+
+    # Try multi-token approach first (TOKEN_SCOPES mapping)
+    if settings.TOKEN_SCOPES:
+        try:
+            token_scopes_mapping = json.loads(settings.TOKEN_SCOPES)
+            if token in token_scopes_mapping:
+                scopes = set(token_scopes_mapping[token])
+                logger.debug(
+                    f"Token verified with scopes from TOKEN_SCOPES mapping",
+                    extra={"scopes": list(scopes)}
+                )
+                return scopes
+        except json.JSONDecodeError:
+            logger.warning("Invalid TOKEN_SCOPES JSON configuration")
+
+    # Fallback to single token validation
     if not settings.MCP_ACCESS_TOKEN:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="MCP_ACCESS_TOKEN not configured"
+            detail="MCP_ACCESS_TOKEN or TOKEN_SCOPES not configured"
         )
 
-    token_valid = hmac.compare_digest(
-        credentials.credentials,
-        settings.MCP_ACCESS_TOKEN
-    )
+    token_valid = hmac.compare_digest(token, settings.MCP_ACCESS_TOKEN)
 
     if not token_valid:
         raise HTTPException(
@@ -66,7 +80,7 @@ async def verify_token_with_scopes(
         )
 
     # Parse scopes from token or configuration
-    scopes = _parse_scopes(credentials.credentials)
+    scopes = _parse_scopes(token)
 
     logger.debug(
         f"Token verified with scopes: {scopes}",
@@ -86,9 +100,12 @@ def _parse_scopes(token: str) -> set[str]:
     3. Default to admin scope if no mapping found
     """
     # Try to parse JWT token for claims
+    # SECURITY NOTE: verify_signature=False is SAFE here because:
+    # 1. Token authenticity already verified with HMAC (line 74)
+    # 2. This decode is ONLY for extracting scope claims from payload
+    # 3. Not used for authentication - only for authorization metadata
     try:
         import jwt
-        # Don't verify signature here, already validated with HMAC
         payload = jwt.decode(token, options={"verify_signature": False})
         if "scope" in payload:
             scopes_str = payload["scope"]

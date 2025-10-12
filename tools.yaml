@@ -117,6 +117,8 @@ tools:
       type: object
     task_types:
       - container-ops
+    required_scopes:
+      - admin
     priority: 0
 
   - name: get-logs
@@ -196,6 +198,8 @@ tools:
       type: object
     task_types:
       - compose-ops
+    required_scopes:
+      - admin
     priority: 0
 
   - name: list-services
@@ -253,6 +257,8 @@ tools:
           type: string
     task_types:
       - service-ops
+    required_scopes:
+      - admin
     priority: 0
 
   - name: remove-service
@@ -264,6 +270,8 @@ tools:
       type: object
     task_types:
       - service-ops
+    required_scopes:
+      - admin
     priority: 0
 
   - name: list-networks
@@ -334,6 +342,8 @@ tools:
       type: object
     task_types:
       - network-ops
+    required_scopes:
+      - admin
     priority: 0
 
   - name: list-volumes
@@ -400,4 +410,100 @@ tools:
       type: object
     task_types:
       - volume-ops
+    required_scopes:
+      - admin
+    priority: 0
+
+  - name: discover-tools
+    description: |
+      Learn how to discover and access all 21 Docker tools using task type filtering. 
+      Returns guidance on the 6 available task types and how to use the task_type parameter. 
+      Note: This tool is MCP-only, not available via REST API.
+    method: GET
+    path: /meta/discover-tools
+    request_schema: null
+    response_schema:
+      type: object
+      properties:
+        guidance:
+          type: string
+        task_types:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              tool_count:
+                type: integer
+              example_tools:
+                type: array
+                items:
+                  type: string
+        example_request:
+          type: string
+      additionalProperties: true
+    task_types:
+      - meta-ops
+    priority: 0
+
+  - name: list-task-types
+    description: |
+      View all available task types and their associated tools. Returns a complete mapping 
+      of task types to tool names. Note: This tool is MCP-only, not available via REST API.
+    method: GET
+    path: /meta/list-task-types
+    request_schema: null
+    response_schema:
+      type: object
+      properties:
+        task_types:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        total_tools:
+          type: integer
+        max_tools_per_request:
+          type: integer
+        usage_hint:
+          type: string
+      additionalProperties: true
+    task_types:
+      - meta-ops
+    priority: 0
+
+  - name: intent-query-help
+    description: |
+      Learn how to use natural language queries for automatic tool discovery. Returns examples 
+      and guidance on intent-based filtering. Note: This tool is MCP-only, not available via REST API.
+    method: GET
+    path: /meta/intent-query-help
+    request_schema: null
+    response_schema:
+      type: object
+      properties:
+        guidance:
+          type: string
+        examples:
+          type: array
+          items:
+            type: object
+            properties:
+              query:
+                type: string
+              detected_task_type:
+                type: string
+              description:
+                type: string
+        enabled:
+          type: boolean
+        example_request:
+          type: string
+        note:
+          type: string
+      additionalProperties: true
+    task_types:
+      - meta-ops
     priority: 0

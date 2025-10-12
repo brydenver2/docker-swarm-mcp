@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "docker-mcp-server"
-version = "0.1.0"
+name = "docker-swarm-mcp"
+version = "0.2.0"
 description = "HTTP-based Model Context Protocol server for Docker operations with context-preserving tool gating"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
@@ -15,7 +15,6 @@ pydantic = "2.5.0"
 pyyaml = "6.0.1"
 urllib3 = "<2.0"
 requests = "<2.32"
-fastapi-mcp = "^0.3.0"
 jsonschema = "^4.20.0"
 pyjwt = "^2.8.0"
 

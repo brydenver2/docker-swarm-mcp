@@ -16,11 +16,12 @@ RUN poetry config virtualenvs.create false && \
 COPY app/ ./app/
 COPY tools.yaml filter-config.json ./
 
-RUN useradd -m -u 1000 mcp && \
-    chown -R mcp:mcp /app && \
-    groupadd -g 999 docker && \
-    usermod -aG docker mcp
+# Create non-root user with docker group access
+RUN groupadd -g 999 docker && \
+    useradd -m -u 1000 -G docker mcp && \
+    chown -R mcp:mcp /app
 
+# Switch to non-root user
 USER mcp
 
 EXPOSE 8000
@@ -29,7 +30,7 @@ ENV PYTHONUNBUFFERED=1 \
     LOG_LEVEL=INFO \
     MCP_TRANSPORT=http
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:8000/mcp/health || exit 1
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

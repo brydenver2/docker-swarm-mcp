@@ -1,1 +1,15 @@
-{"mcpServers":{}}
+{
+  "mcpServers": {
+    "docker": {
+      "type": "streamable-http",
+      "url": "http://localhost:8000/mcp/v1/",
+      "headers": {
+        "Authorization": "Bearer 98a0305163506ea4f95b9b6c206ac459c4cfa3aeb97c24b31c89660e5d33f928"
+      },
+      "disabled": false,
+      "alwaysAllow": [
+        "create-volume"
+      ]
+    }
+  }
+}

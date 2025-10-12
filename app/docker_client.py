@@ -3,6 +3,7 @@ from typing import Any, Optional
 from datetime import datetime
 
 import docker
+import docker.tls
 import yaml
 from docker.errors import DockerException, NotFound, APIError
 from docker.types import ServiceMode
@@ -31,7 +32,6 @@ class DockerClient:
 
                 # Handle TLS configuration
                 if settings.DOCKER_TLS_VERIFY and settings.DOCKER_CERT_PATH:
-                    import docker.tls
                     tls_config = docker.tls.TLSConfig(
                         client_cert=(
                             f"{settings.DOCKER_CERT_PATH}/cert.pem",
@@ -118,12 +118,15 @@ class DockerClient:
                             "type": port_type
                         })
                 
+                # Convert datetime to ISO string for JSON serialization
+                created_dt = datetime.fromisoformat(container.attrs["Created"].replace("Z", "+00:00"))
+                
                 result.append({
                     "id": container.short_id,
                     "name": container.name,
                     "status": container.status,
                     "image": container.image.tags[0] if container.image.tags else container.image.short_id,
-                    "created": datetime.fromisoformat(container.attrs["Created"].replace("Z", "+00:00")),
+                    "created": created_dt.isoformat(),
                     "ports": ports
                 })
             return result
@@ -191,7 +194,7 @@ class DockerClient:
                 "name": container.name,
                 "status": container.status,
                 "image": config["image"],
-                "created": datetime.now()
+                "created": datetime.now().isoformat()
             }
         except NotFound as e:
             logger.error(f"Image not found: {e}")
@@ -555,11 +558,11 @@ class DockerClient:
                 created_time = network.attrs.get("Created", "")
                 if created_time:
                     try:
-                        created = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
+                        created = datetime.fromisoformat(created_time.replace("Z", "+00:00")).isoformat()
                     except (ValueError, AttributeError):
-                        created = datetime.now()
+                        created = datetime.now().isoformat()
                 else:
-                    created = datetime.now()
+                    created = datetime.now().isoformat()
                 
                 result.append({
                     "id": network.short_id,
@@ -589,11 +592,11 @@ class DockerClient:
             created_time = network.attrs.get("Created", "")
             if created_time:
                 try:
-                    created = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
+                    created = datetime.fromisoformat(created_time.replace("Z", "+00:00")).isoformat()
                 except (ValueError, AttributeError):
-                    created = datetime.now()
+                    created = datetime.now().isoformat()
             else:
-                created = datetime.now()
+                created = datetime.now().isoformat()
             
             return {
                 "id": network.short_id,
@@ -633,11 +636,11 @@ class DockerClient:
                 created_time = volume.attrs.get("CreatedAt", "")
                 if created_time:
                     try:
-                        created = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
+                        created = datetime.fromisoformat(created_time.replace("Z", "+00:00")).isoformat()
                     except (ValueError, AttributeError):
-                        created = datetime.now()
+                        created = datetime.now().isoformat()
                 else:
-                    created = datetime.now()
+                    created = datetime.now().isoformat()
                 
                 result.append({
                     "name": volume.name,
@@ -666,11 +669,11 @@ class DockerClient:
             created_time = volume.attrs.get("CreatedAt", "")
             if created_time:
                 try:
-                    created = datetime.fromisoformat(created_time.replace("Z", "+00:00"))
+                    created = datetime.fromisoformat(created_time.replace("Z", "+00:00")).isoformat()
                 except (ValueError, AttributeError):
-                    created = datetime.now()
+                    created = datetime.now().isoformat()
             else:
-                created = datetime.now()
+                created = datetime.now().isoformat()
             
             return {
                 "name": volume.name,

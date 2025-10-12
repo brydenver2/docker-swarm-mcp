@@ -206,7 +206,7 @@ Expected: Docker ping response
 ```json
 {
   "mcpServers": {
-    "docker-mcp-server": {
+    "docker-swarm-mcp": {
       "type": "streamable-http",
       "url": "http://localhost:8000/mcp",
       "headers": {

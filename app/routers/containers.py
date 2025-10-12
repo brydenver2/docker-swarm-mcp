@@ -5,6 +5,7 @@ import json
 from app.core.auth import verify_token
 from app.docker_client import get_docker_client, DockerClient
 from app.schemas.containers import ContainerCreateRequest, ContainerResponse, ContainerSummary
+from app.services import container_service
 
 router = APIRouter()
 
@@ -15,8 +16,13 @@ async def list_containers(
     filters: Optional[str] = Query(None, description="JSON-encoded filters"),
     docker_client: DockerClient = Depends(get_docker_client)
 ):
+    """List containers using service layer"""
     filters_dict = json.loads(filters) if filters else None
-    containers = docker_client.list_containers(all=all, filters=filters_dict)
+    params = {"all": all}
+    if filters_dict:
+        params["filters"] = filters_dict
+
+    containers = await container_service.list_containers(docker_client, params)
     return containers
 
 
@@ -25,7 +31,8 @@ async def create_container(
     request: ContainerCreateRequest,
     docker_client: DockerClient = Depends(get_docker_client)
 ):
-    container = docker_client.create_container(request.model_dump())
+    """Create container using service layer"""
+    container = await container_service.create_container(docker_client, request.model_dump())
     return container
 
 
@@ -34,7 +41,8 @@ async def start_container(
     id: str,
     docker_client: DockerClient = Depends(get_docker_client)
 ):
-    docker_client.start_container(id)
+    """Start container using service layer"""
+    await container_service.start_container(docker_client, {"id": id})
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -44,7 +52,8 @@ async def stop_container(
     timeout: int = Query(10, description="Seconds to wait before killing"),
     docker_client: DockerClient = Depends(get_docker_client)
 ):
-    docker_client.stop_container(id, timeout=timeout)
+    """Stop container using service layer"""
+    await container_service.stop_container(docker_client, {"id": id, "timeout": timeout})
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -54,7 +63,8 @@ async def remove_container(
     force: bool = Query(False, description="Force removal of running container"),
     docker_client: DockerClient = Depends(get_docker_client)
 ):
-    docker_client.remove_container(id, force=force)
+    """Remove container using service layer"""
+    await container_service.remove_container(docker_client, {"id": id, "force": force})
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -66,5 +76,9 @@ async def get_container_logs(
     follow: bool = Query(False, description="Stream logs (SSE transport only)"),
     docker_client: DockerClient = Depends(get_docker_client)
 ):
-    logs = docker_client.get_logs(id, tail=tail, since=since, follow=follow)
+    """Get container logs using service layer"""
+    logs = await container_service.get_logs(
+        docker_client,
+        {"id": id, "tail": tail, "since": since, "follow": follow}
+    )
     return Response(content=logs, media_type="text/plain")
