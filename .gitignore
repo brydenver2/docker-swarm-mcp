@@ -27,6 +27,8 @@ venv/
 ENV/
 env/
 
+.venv
+
 # Testing
 .pytest_cache/
 .coverage
