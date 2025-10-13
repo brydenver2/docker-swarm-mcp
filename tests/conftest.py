@@ -477,8 +477,10 @@ def method() -> str:
     """
     Default HTTP method fixture for integration-style tests.
     
-    Provides a deterministic default so pytest can execute helper-style tests
-    that expect a `method` argument without requiring an actual parametrized fixture.
+    Provides a deterministic default so pytest can execute helper-style tests that accept a `method` argument without requiring parametrization.
+    
+    Returns:
+        default_method (str): The HTTP method string "GET" used as the fixture value.
     """
     return "GET"
 
@@ -486,9 +488,11 @@ def method() -> str:
 @pytest.fixture
 def endpoint() -> str:
     """
-    Default endpoint fixture returning a health-check path.
+    Provide the default health-check endpoint used by helper-style tests.
     
-    Ensures helper-style tests that accept an `endpoint` argument can run even
-    when an MCP server is not available, while still exercising error handling.
+    Used by tests that accept an `endpoint` fixture so they can exercise error handling when the MCP server is unavailable.
+    
+    Returns:
+        endpoint (str): The health-check path "/mcp/healthz".
     """
     return "/mcp/healthz"

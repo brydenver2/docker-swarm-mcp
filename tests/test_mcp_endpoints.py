@@ -35,15 +35,22 @@ def _call_endpoint(
     timeout: int = 10,
 ) -> Dict[str, Any]:
     """
-    Send an HTTP request to the MCP endpoint and capture the response.
-
+    Send an HTTP request to the MCP server and return a structured result.
+    
+    Parameters:
+        method (str): HTTP method to use; supported values are "GET" and "POST".
+        endpoint (str): Path appended to BASE_URL for the request (e.g., "/mcp/").
+        data (dict | None): JSON-serializable payload for POST requests when `raw_body` is not provided.
+        headers (dict | None): Optional headers to override the default HEADERS.
+        raw_body (str | None): Optional raw request body to send as-is for POST requests (bypasses JSON encoding).
+        timeout (int): Request timeout in seconds.
+    
     Returns:
-        dict: On success, a mapping containing:
-            - "status": HTTP status code
-            - "json": Parsed JSON payload (when available)
-            - "raw": Raw text body (when JSON parsing fails)
-        On connection error, {"error": "connection_failed"}.
-        On other unexpected exceptions, {"error": "<message>"}.
+        dict: One of:
+            - {"status": <int>, "json": <parsed JSON>} when the response contains valid JSON.
+            - {"status": <int>, "raw": <str>} when the response body is not valid JSON.
+            - {"error": "connection_failed"} if the server could not be reached.
+            - {"error": "<message>"} for other unexpected exceptions.
     """
     url = f"{BASE_URL}{endpoint}"
     request_headers = headers or HEADERS
@@ -85,7 +92,13 @@ def _call_endpoint(
 
 def _require_running_server(result: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Skip the current test if the MCP server is not reachable.
+    Skip the current test when the MCP server cannot be reached.
+    
+    Parameters:
+    	result (Dict[str, Any]): Result object returned by _call_endpoint; if it contains {"error": "connection_failed"} the test will be skipped.
+    
+    Returns:
+    	result (Dict[str, Any]): The unchanged input result.
     """
     if result.get("error") == "connection_failed":
         pytest.skip(f"MCP server not running at {BASE_URL}; skipping endpoint check.")
@@ -160,6 +173,11 @@ def test_prompts_get_invalid():
 
 def test_tools_call():
     # Seed session tools
+    """
+    Run a tools/call RPC for the "list-containers" tool and assert a successful JSON result.
+    
+    Seeds a tools/list call to establish session state, invokes tools/call with arguments {"all": True}, asserts the HTTP status is 200, and skips the test if the RPC returns an error. If no error is present, asserts that the response contains a "result" field.
+    """
     list_payload = {"jsonrpc": "2.0", "method": "tools/list", "id": 2}
     _require_running_server(_call_endpoint("POST", "/mcp/", list_payload))
 
@@ -207,6 +225,11 @@ def test_health_endpoint():
 
 
 def test_unauthorized_access():
+    """
+    Verifies that calling the tools/list method without an Authorization header is rejected by the MCP server.
+    
+    Asserts the HTTP status code is either 401 or 403. Skips the test if the MCP server is unreachable.
+    """
     payload = {"jsonrpc": "2.0", "method": "tools/list", "id": 6}
     # Drop Authorization header to simulate unauthorized request
     result = _call_endpoint(
@@ -261,6 +284,11 @@ def test_meta_tool_list_task_types():
 
 
 def test_meta_tool_intent_help():
+    """
+    Verify that the meta tool 'intent-query-help' can be invoked and returns a result.
+    
+    Seeds the server's meta-tools list (task_type "meta-ops"), calls the `intent-query-help` meta tool, and asserts the HTTP status is 200 and the response JSON contains a `result` field.
+    """
     list_payload = {
         "jsonrpc": "2.0",
         "method": "tools/list",

@@ -33,15 +33,13 @@ class HTTPBearerOrQuery(HTTPBearer):
     async def __call__(self, request: Request) -> HTTPAuthorizationCredentials:
         # Try Authorization header first (standard behavior)
         """
-        Accept an access token from the Authorization header (Bearer) or the X-Access-Token header and return HTTP authorization credentials.
-        
-        If the Authorization header contains a Bearer token, that token is used. If not, the X-Access-Token header is used as a fallback. Query-parameter authentication is not supported.
+        Extract an access token from the Authorization or X-Access-Token header and return HTTP authorization credentials.
         
         Returns:
-            HTTPAuthorizationCredentials: Credentials containing the scheme (typically "Bearer") and the token string.
+            HTTPAuthorizationCredentials: The credential scheme and token string.
         
         Raises:
-            HTTPException: With status 403 and WWW-Authenticate: "Bearer" when no valid token is found.
+            HTTPException: Raised with status 403 and WWW-Authenticate: "Bearer" when no valid token is present.
         """
         authorization = request.headers.get("Authorization")
         scheme, credentials = get_authorization_scheme_param(authorization)
@@ -97,15 +95,21 @@ async def verify_token_with_scopes(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ) -> set[str]:
     """
-    Validate the provided access token and return the set of authorization scopes for MCP endpoints.
+    Resolve and validate an access token and return the set of authorization scopes for MCP endpoints.
     
-    Determines scopes from a per-token mapping, from JWT claims, or from the single shared token configuration and raises HTTPException on misconfiguration or invalid token.
+    The function first checks a TOKEN_SCOPES JSON mapping for per-token scopes, then falls back to validating a single shared MCP_ACCESS_TOKEN and deriving scopes from the token (JWT claims or configuration). On misconfiguration (neither TOKEN_SCOPES nor MCP_ACCESS_TOKEN configured) it raises HTTPException 500. On an invalid or missing token it raises HTTPException with status 401 or 403: tokens supplied via the X-Access-Token header initially map to 403, but the status may be converted to 401 after inspecting the request body (if the JSON payload's "method" is not "initialize" or body parsing fails).
+    
+    Parameters:
+        request (Request): Incoming request object; inspected when the token was supplied via the X-Access-Token header to decide the appropriate failure status.
     
     Returns:
         set[str]: The resolved set of scope strings (for example {"admin", "container-ops", "read-only"}).
     
     Raises:
-        HTTPException: 500 if neither TOKEN_SCOPES nor MCP_ACCESS_TOKEN is configured; 401 if the token is invalid or missing.
+        HTTPException: 
+            - 500 if neither TOKEN_SCOPES nor MCP_ACCESS_TOKEN is configured.
+            - 401 if the token is invalid or missing (or when X-Access-Token validation is downgraded to 401 after request inspection).
+            - 403 if the token is invalid and came from the X-Access-Token header and request inspection does not change the status.
     """
     token = credentials.credentials
 
@@ -207,14 +211,14 @@ def _parse_scopes(token: str) -> set[str]:
 
 def check_scopes(required_scopes: set[str], user_scopes: set[str]) -> bool:
     """
-    Check if user has required scopes
-
-    Args:
-        required_scopes: Set of required scopes (any match grants access)
-        user_scopes: Set of user's scopes
-
+    Determine whether a user has sufficient scopes for access.
+    
+    Parameters:
+        required_scopes (set[str]): Required scopes; any intersection with user_scopes grants access. An empty set allows access.
+        user_scopes (set[str]): Scopes assigned to the user; presence of "admin" grants access regardless of required_scopes.
+    
     Returns:
-        True if user has any of the required scopes or has "admin" scope
+        bool: `True` if the user has the "admin" scope or any of the required scopes, `False` otherwise.
     """
     if "admin" in user_scopes:
         return True

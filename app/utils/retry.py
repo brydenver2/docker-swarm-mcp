@@ -228,12 +228,12 @@ def retry_write(operation_name: Optional[str] = None):
 
 def retry_none(operation_name: Optional[str] = None):
     """
-    Create a decorator that applies the no-retry configuration to an async function.
+    Create a decorator that applies the module's no-retry policy to an async function.
     
-    The returned decorator wraps an async function so it is executed with a retry policy that performs a single attempt and no delay or jitter.
+    The decorator wraps an async function so it is invoked with a retry configuration that performs a single attempt with no delay or jitter.
     
     Parameters:
-        operation_name (Optional[str]): Optional explicit name used for logging; if omitted the wrapper derives a name from the function.
+        operation_name (Optional[str]): Optional explicit name used for logging; if omitted the wrapper derives a name from the wrapped function.
     
     Returns:
         Callable: A decorator that wraps an async function to execute it using the no-retry configuration.
