@@ -1,4 +1,5 @@
 """Container service functions"""
+import asyncio
 from typing import Any
 
 from app.docker_client import DockerClient
@@ -16,7 +17,7 @@ async def list_containers(docker_client: DockerClient, params: dict[str, Any]) -
 @retry_write(operation_name="create_container")
 async def create_container(docker_client: DockerClient, params: dict[str, Any]) -> dict[str, Any]:
     """Create a Docker container"""
-    return docker_client.create_container(params)
+    return await asyncio.to_thread(docker_client.create_container, params)
 
 
 @retry_write(operation_name="start_container")

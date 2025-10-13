@@ -194,6 +194,24 @@ class DynamicToolGatingMCP:
 
         logger.info(f"Successfully validated schemas for {len(all_tools)} tools")
 
+    @staticmethod
+    def _build_input_schema(tool_schema: dict[str, Any] | None) -> dict[str, Any]:
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": (tool_schema.get("properties") if tool_schema else {}),
+            "required": (tool_schema.get("required") if tool_schema else []),
+        }
+
+        if not tool_schema:
+            return schema
+
+        for key, value in tool_schema.items():
+            if key in {"type", "properties", "required"}:
+                continue
+            schema[key] = value
+
+        return schema
+
     async def handle_initialize(
         self,
         params: dict[str, Any] | None,
@@ -406,12 +424,7 @@ class DynamicToolGatingMCP:
                 {
                     "name": tool.name,
                     "description": tool.description,
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": (tool.request_schema.get("properties") if tool.request_schema else {}),
-                        "required": (tool.request_schema.get("required") if tool.request_schema else []),
-                        **(tool.request_schema or {})
-                    }
+                    "inputSchema": self._build_input_schema(tool.request_schema)
                 }
                 for tool in filtered_tools.values()
             ],

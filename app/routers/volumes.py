@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Response, status
+import asyncio
+
+from fastapi import APIRouter, Depends, status
 
 from app.core.auth import verify_token
 from app.docker_client import DockerClient, get_docker_client
@@ -10,9 +12,8 @@ router = APIRouter()
 @router.get("/volumes", response_model=list[VolumeResponse], dependencies=[Depends(verify_token)])
 async def list_volumes(
     docker_client: DockerClient = Depends(get_docker_client)
-):
-    volumes = docker_client.list_volumes()
-    return volumes
+) -> list[VolumeResponse]:
+    return await asyncio.to_thread(docker_client.list_volumes)
 
 
 @router.post("/volumes", response_model=VolumeResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(verify_token)])
@@ -28,6 +29,5 @@ async def create_volume(
 async def remove_volume(
     name: str,
     docker_client: DockerClient = Depends(get_docker_client)
-):
-    docker_client.remove_volume(name)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+) -> None:
+    await asyncio.to_thread(docker_client.remove_volume, name)

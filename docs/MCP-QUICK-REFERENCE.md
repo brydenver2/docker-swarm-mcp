@@ -211,17 +211,19 @@ tailscale up
 tailscale ip -4  # e.g., 100.101.102.103
 
 # Client config
-{
-  "mcpServers": {
-    "docker-remote": {
-      "transport": "http",
-      "url": "http://100.101.102.103:8000/mcp/",
-      "headers": {
-        "Authorization": "Bearer your-token-here"
+  {
+    "mcpServers": {
+      "docker-remote": {
+        "transport": {
+          "type": "http",
+          "url": "http://100.101.102.103:8000/mcp/",
+          "headers": {
+            "Authorization": "Bearer your-token-here"
+          }
+        }
       }
     }
   }
-}
 ```
 
 ### ngrok (Development)
@@ -231,17 +233,19 @@ tailscale ip -4  # e.g., 100.101.102.103
 ngrok http 8000
 
 # Use provided URL in client config
-{
-  "mcpServers": {
-    "docker-remote": {
-      "transport": "http",
-      "url": "https://abc123.ngrok.io/mcp/",
-      "headers": {
-        "Authorization": "Bearer your-token-here"
+  {
+    "mcpServers": {
+      "docker-remote": {
+        "transport": {
+          "type": "http",
+          "url": "https://abc123.ngrok.io/mcp/",
+          "headers": {
+            "Authorization": "Bearer your-token-here"
+          }
+        }
       }
     }
   }
-}
 ```
 
 ### TLS/SSH (Production)

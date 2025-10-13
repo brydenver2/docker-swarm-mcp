@@ -10,17 +10,34 @@ def test():
     sys.exit(pytest.main(["tests/"]))
 
 
-def test_fast():
+def test_fast() -> int:
     """
-    Run tests in the `tests/` directory with pytest's `addopts` ini option overridden to an empty value, then exit the process with pytest's return code.
+    Run tests in the `tests/` directory with pytest's `addopts` ini option overridden to an empty value.
+
+    Returns:
+        int: Pytest's exit code.
     """
-    sys.exit(pytest.main(["--override-ini=addopts=''", "tests/"]))
+    return int(pytest.main(["--override-ini=addopts=''", "tests/"]))
 
 
-def test_cov():
+def test_cov(package: str = "app", test_path: str = "tests/") -> int:
     """
-    Run the test suite with coverage measurement for the `app` package and exit with pytest's status code.
-    
-    Runs pytest for the `tests/` directory with coverage enabled for the `app` package, produces a terminal-missing coverage report and an HTML coverage report, and terminates the process using pytest's exit code.
+    Run the test suite with coverage measurement for the given package.
+
+    Args:
+        package: Package name or dotted path to measure for coverage (default: "app").
+        test_path: Directory or file path containing tests to execute (default: "tests/").
+
+    Returns:
+        int: Pytest's exit code.
     """
-    sys.exit(pytest.main(["--cov=app", "--cov-report=term-missing", "--cov-report=html", "tests/"]))
+    return int(
+        pytest.main(
+            [
+                f"--cov={package}",
+                "--cov-report=term-missing",
+                "--cov-report=html",
+                test_path,
+            ]
+        )
+    )

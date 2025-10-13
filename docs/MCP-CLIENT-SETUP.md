@@ -555,7 +555,7 @@ export DOCKER_MCP_TOKEN="$(aws secretsmanager get-secret-value --secret-id docke
   "mcpServers": {
     "docker": {
       "transport": "http",
-      "url": "http://localhost:8000",
+      "url": "http://localhost:8000/mcp/",
       "headers": {
         "Authorization": "Bearer ${DOCKER_MCP_TOKEN}"
       }
@@ -571,7 +571,7 @@ export DOCKER_MCP_TOKEN="$(aws secretsmanager get-secret-value --secret-id docke
   "mcpServers": {
     "docker-remote": {
       "transport": "http",
-      "url": "http://100.101.102.103:8000",
+      "url": "http://100.101.102.103:8000/mcp/",
       "headers": {
         "Authorization": "Bearer ${DOCKER_MCP_TOKEN}"
       }
@@ -592,7 +592,7 @@ ngrok http 8000 --basic-auth "user:pass"
   "mcpServers": {
     "docker-remote": {
       "transport": "http",
-      "url": "https://abc123.ngrok.io",
+      "url": "https://abc123.ngrok.io/mcp/",
       "headers": {
         "Authorization": "Bearer ${DOCKER_MCP_TOKEN}",
         "ngrok-auth": "Basic dXNlcjpwYXNz"

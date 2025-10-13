@@ -536,12 +536,14 @@ Tool parameters are validated against `request_schema` from `tools.yaml`:
   "params": {
     "name": "create-container",
     "arguments": {
-      "image": "nginx:latest"  // Missing 'image' causes -32602 error
+      "name": "web"
     }
   },
   "id": 4
 }
 ```
+
+Submitting the request without the required `image` parameter triggers a `-32602` validation error.
 
 **Error Response:**
 ```json

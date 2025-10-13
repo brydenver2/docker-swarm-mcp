@@ -1,5 +1,27 @@
 import os
-from typing import Literal
+from typing import Literal, cast
+
+
+def get_env_int(name: str, default: int) -> int:
+    """Fetch an int environment variable with clear error reporting."""
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError(f"Environment variable {name} must be an integer, got {raw!r}") from exc
+
+
+def get_env_float(name: str, default: float) -> float:
+    """Fetch a float environment variable with clear error reporting."""
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise ValueError(f"Environment variable {name} must be a float, got {raw!r}") from exc
 
 
 class Settings:
@@ -10,59 +32,50 @@ class Settings:
 
     # MCP configuration
     MCP_ACCESS_TOKEN: str = os.getenv("MCP_ACCESS_TOKEN", "")
-    MCP_TRANSPORT: Literal["http", "sse"] = os.getenv("MCP_TRANSPORT", "http")  # type: ignore
+    TOKEN_SCOPES: str = os.getenv("TOKEN_SCOPES", "")
+    MCP_TRANSPORT: Literal["http", "sse"] = cast(
+        Literal["http", "sse"], os.getenv("MCP_TRANSPORT", "http")
+    )
     MCP_PROTOCOL_VERSION: str = os.getenv("MCP_PROTOCOL_VERSION", "2024-11-05")
-    MCP_TOOL_TIMEOUT: int = int(os.getenv("MCP_TOOL_TIMEOUT", "30"))  # seconds
+    MCP_TOOL_TIMEOUT: int = get_env_int("MCP_TOOL_TIMEOUT", 30)  # seconds
     ENFORCE_OUTPUT_SCHEMA: bool = os.getenv("ENFORCE_OUTPUT_SCHEMA", "false").lower() == "true"
     STRICT_CONTEXT_LIMIT: bool = os.getenv("STRICT_CONTEXT_LIMIT", "false").lower() == "true"
     ENABLE_REST_API: bool = os.getenv("ENABLE_REST_API", "false").lower() == "true"
 
     # Per-tool timeout configurations (seconds)
-    MCP_TIMEOUT_READ_OPS: int = int(os.getenv("MCP_TIMEOUT_READ_OPS", "15"))  # list, get, info operations
-    MCP_TIMEOUT_WRITE_OPS: int = int(os.getenv("MCP_TIMEOUT_WRITE_OPS", "30"))  # create, start, stop operations
-    MCP_TIMEOUT_DELETE_OPS: int = int(os.getenv("MCP_TIMEOUT_DELETE_OPS", "45"))  # remove, delete operations
+    MCP_TIMEOUT_READ_OPS: int = get_env_int("MCP_TIMEOUT_READ_OPS", 15)
+    MCP_TIMEOUT_WRITE_OPS: int = get_env_int("MCP_TIMEOUT_WRITE_OPS", 30)
+    MCP_TIMEOUT_DELETE_OPS: int = get_env_int("MCP_TIMEOUT_DELETE_OPS", 45)
 
     # Retry configurations
-    RETRY_READ_MAX_ATTEMPTS: int = int(os.getenv("RETRY_READ_MAX_ATTEMPTS", "3"))
-    RETRY_READ_BASE_DELAY: float = float(os.getenv("RETRY_READ_BASE_DELAY", "0.1"))
-    RETRY_READ_MAX_DELAY: float = float(os.getenv("RETRY_READ_MAX_DELAY", "1.0"))
-    RETRY_READ_BACKOFF_FACTOR: float = float(os.getenv("RETRY_READ_BACKOFF_FACTOR", "2.0"))
+    RETRY_READ_MAX_ATTEMPTS: int = get_env_int("RETRY_READ_MAX_ATTEMPTS", 3)
+    RETRY_READ_BASE_DELAY: float = get_env_float("RETRY_READ_BASE_DELAY", 0.1)
+    RETRY_READ_MAX_DELAY: float = get_env_float("RETRY_READ_MAX_DELAY", 1.0)
+    RETRY_READ_BACKOFF_FACTOR: float = get_env_float("RETRY_READ_BACKOFF_FACTOR", 2.0)
     RETRY_READ_JITTER: bool = os.getenv("RETRY_READ_JITTER", "true").lower() == "true"
 
-    RETRY_WRITE_MAX_ATTEMPTS: int = int(os.getenv("RETRY_WRITE_MAX_ATTEMPTS", "2"))
-    RETRY_WRITE_BASE_DELAY: float = float(os.getenv("RETRY_WRITE_BASE_DELAY", "0.2"))
-    RETRY_WRITE_MAX_DELAY: float = float(os.getenv("RETRY_WRITE_MAX_DELAY", "1.5"))
-    RETRY_WRITE_BACKOFF_FACTOR: float = float(os.getenv("RETRY_WRITE_BACKOFF_FACTOR", "2.0"))
+    RETRY_WRITE_MAX_ATTEMPTS: int = get_env_int("RETRY_WRITE_MAX_ATTEMPTS", 2)
+    RETRY_WRITE_BASE_DELAY: float = get_env_float("RETRY_WRITE_BASE_DELAY", 0.2)
+    RETRY_WRITE_MAX_DELAY: float = get_env_float("RETRY_WRITE_MAX_DELAY", 1.5)
+    RETRY_WRITE_BACKOFF_FACTOR: float = get_env_float("RETRY_WRITE_BACKOFF_FACTOR", 2.0)
     RETRY_WRITE_JITTER: bool = os.getenv("RETRY_WRITE_JITTER", "true").lower() == "true"
 
-    # Authentication and authorization
-    def validate(self):
-        """Validate security-critical settings"""
-        # Fail fast if both MCP_ACCESS_TOKEN and TOKEN_SCOPES are unset
-        if not self.MCP_ACCESS_TOKEN and not self.TOKEN_SCOPES:
-            raise ValueError(
-                "Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be set. "
-                "Set MCP_ACCESS_TOKEN for single-token auth or TOKEN_SCOPES for multi-token auth"
-            )
-
-        # Validate TOKEN_SCOPES JSON format if provided
-        if self.TOKEN_SCOPES:
-            import json
-            try:
-                scopes_dict = json.loads(self.TOKEN_SCOPES)
-                if not isinstance(scopes_dict, dict):
-                    raise ValueError("TOKEN_SCOPES must be a JSON object/dict")
-            except json.JSONDecodeError as e:
-                raise ValueError(f"TOKEN_SCOPES contains invalid JSON: {e}") from None
-
     # Intent classification configuration
-    INTENT_CLASSIFICATION_ENABLED: bool = os.getenv("INTENT_CLASSIFICATION_ENABLED", "true").lower() == "true"
-    INTENT_FALLBACK_TO_ALL: bool = os.getenv("INTENT_FALLBACK_TO_ALL", "true").lower() == "true"
-    INTENT_MIN_CONFIDENCE: float = float(os.getenv("INTENT_MIN_CONFIDENCE", "0.0"))
-    INTENT_PRECEDENCE: Literal["intent", "explicit"] = os.getenv("INTENT_PRECEDENCE", "intent")  # type: ignore
+    INTENT_CLASSIFICATION_ENABLED: bool = (
+        os.getenv("INTENT_CLASSIFICATION_ENABLED", "true").lower() == "true"
+    )
+    INTENT_FALLBACK_TO_ALL: bool = (
+        os.getenv("INTENT_FALLBACK_TO_ALL", "true").lower() == "true"
+    )
+    INTENT_MIN_CONFIDENCE: float = get_env_float("INTENT_MIN_CONFIDENCE", 0.0)
+    INTENT_PRECEDENCE: Literal["intent", "explicit"] = cast(
+        Literal["intent", "explicit"], os.getenv("INTENT_PRECEDENCE", "intent")
+    )
 
     # Security and debugging settings
-    EXPOSE_ENDPOINTS_IN_HEALTHZ: bool = os.getenv("EXPOSE_ENDPOINTS_IN_HEALTHZ", "false").lower() == "true"
+    EXPOSE_ENDPOINTS_IN_HEALTHZ: bool = (
+        os.getenv("EXPOSE_ENDPOINTS_IN_HEALTHZ", "false").lower() == "true"
+    )
 
     # Logging and CORS
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
@@ -76,18 +89,42 @@ class Settings:
     TAILSCALE_TAGS: str = os.getenv("TAILSCALE_TAGS", "")
     TAILSCALE_EXTRA_ARGS: str = os.getenv("TAILSCALE_EXTRA_ARGS", "")
     TAILSCALE_STATE_DIR: str = os.getenv("TAILSCALE_STATE_DIR", "/var/lib/tailscale")
-    TAILSCALE_TIMEOUT: int = int(os.getenv("TAILSCALE_TIMEOUT", "30"))
+    TAILSCALE_TIMEOUT: int = get_env_int("TAILSCALE_TIMEOUT", 30)
 
     DEBUG: bool = LOG_LEVEL == "DEBUG"
 
-    def validate(self):
-        """Validate security-critical settings"""
-        # Fail fast if both MCP_ACCESS_TOKEN and TOKEN_SCOPES are unset
+    def validate(self) -> None:
+        """Validate configuration values that need runtime checks."""
         if not self.MCP_ACCESS_TOKEN and not self.TOKEN_SCOPES:
             raise ValueError(
                 "Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be set. "
                 "Set MCP_ACCESS_TOKEN for single-token auth or TOKEN_SCOPES for multi-token auth"
             )
+
+        if self.TOKEN_SCOPES:
+            import json
+
+            try:
+                scopes_dict = json.loads(self.TOKEN_SCOPES)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"TOKEN_SCOPES contains invalid JSON: {exc}") from None
+            if not isinstance(scopes_dict, dict):
+                raise ValueError("TOKEN_SCOPES must be a JSON object/dict")
+
+        allowed_transports: tuple[str, ...] = ("http", "sse")
+        if self.MCP_TRANSPORT not in allowed_transports:
+            raise ValueError(
+                f"MCP_TRANSPORT must be one of {allowed_transports}, got {self.MCP_TRANSPORT!r}"
+            )
+        self.MCP_TRANSPORT = cast(Literal["http", "sse"], self.MCP_TRANSPORT)
+
+        allowed_precedence: tuple[str, ...] = ("intent", "explicit")
+        if self.INTENT_PRECEDENCE not in allowed_precedence:
+            raise ValueError(
+                f"INTENT_PRECEDENCE must be one of {allowed_precedence}, got {self.INTENT_PRECEDENCE!r}"
+            )
+        self.INTENT_PRECEDENCE = cast(Literal["intent", "explicit"], self.INTENT_PRECEDENCE)
+
 
 settings = Settings()
 settings.validate()
