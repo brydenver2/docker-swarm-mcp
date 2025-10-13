@@ -145,7 +145,6 @@ _settings_instance: Settings | None = globals().get("_settings_instance")  # typ
 if _settings_instance is None:
     _settings_instance = Settings()
 else:
-else:
     # Refresh existing instance in place so other modules retain the same object reference.
     refreshed_settings = Settings()
     refreshed_settings.validate()
