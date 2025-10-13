@@ -193,14 +193,54 @@ The code uses `jwt.decode(token, options={"verify_signature": False})` which Sem
 3. Not used for authentication - only for authorization metadata extraction
 4. The decode happens after successful HMAC validation on line 74
 
-### Health Check Endpoint
+### Health Check Endpoints
 
-The `/mcp/health` endpoint is **unauthenticated** by design for monitoring systems.
+The server provides two distinct health endpoints with different security models and use cases:
 
-**Information Exposed:**
-- Server status (healthy/unhealthy)
-- Docker engine reachability
-- Server version
+#### `/mcp/health` - Basic Liveness/Readiness Probe
+
+- **Authentication**: **Unauthenticated** by design for monitoring systems
+- **Purpose**: Basic liveness/readiness probe suitable for load balancers and Kubernetes probes
+- **Information Exposed**:
+  - Server status (healthy/degraded)
+  - Docker engine reachability (boolean)
+  - Server version string
+- **Security**: Must not expose sensitive information; safe for external monitoring
+- **Usage**: Intended for automated health checks, load balancer probes, orchestration systems
+
+#### `/mcp/healthz` - Detailed Diagnostics Endpoint
+
+- **Authentication**: **Unauthenticated** but with security controls
+- **Purpose**: Detailed diagnostic information for internal monitoring and troubleshooting
+- **Information Exposed**:
+  - Comprehensive health status (healthy/degraded/unhealthy)
+  - MCP server readiness state
+  - Authentication configuration status
+  - Tool registry statistics (tool count)
+  - Protocol version information
+  - **Conditional**: MCP route endpoints (only when `EXPOSE_ENDPOINTS_IN_HEALTHZ=true`)
+- **Security**: Route endpoints gated behind feature flag to prevent reconnaissance
+- **Usage**: Internal diagnostics, detailed monitoring dashboards, debugging
+
+#### Monitoring Guidance
+
+**For Automated Probes** (Load Balancers, K8s, etc.):
+```bash
+# Use basic health endpoint - no sensitive info exposed
+curl http://localhost:8080/mcp/health
+```
+
+**For Diagnostics and Monitoring Dashboards**:
+```bash
+# Use detailed health endpoint - comprehensive status
+curl http://localhost:8080/mcp/healthz
+```
+
+**Security Considerations**:
+- `/mcp/health`: Safe for external exposure, contains only basic status information
+- `/mcp/healthz`: Enable `EXPOSE_ENDPOINTS_IN_HEALTHZ=true` only in development/debugging environments
+- Both endpoints are intentionally unauthenticated to support monitoring infrastructure
+- Response format: JSON with appropriate HTTP status codes (200 for accessible, status field indicates health)
 
 **No Sensitive Data:** Docker details, containers, or configuration are NOT exposed.
 
