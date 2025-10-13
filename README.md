@@ -2,7 +2,7 @@
 
 **The missing MCP server for Docker Swarm.** Finally, a production-ready MCP that gives you full Docker Swarm control without drowning your AI in tool descriptions.
 
-![Semgrep](https://img.shields.io/badge/Scanned%20with-Semgrep-brightgreen?logo=semgrep) ![Code Reviewed by CodeRabbit](https://img.shields.io/badge/Code%20Reviewed%20by-CodeRabbit-000000?style=flat-square&logo=appveyor&logoColor=white&color=FF570A) ![Version](https://img.shields.io/badge/version-0.4.0-blue) ![Production Ready](https://img.shields.io/badge/status-production--ready-green)
+![Semgrep](https://img.shields.io/badge/Scanned%20with-Semgrep-brightgreen?logo=semgrep) ![Code Reviewed by CodeRabbit](https://img.shields.io/badge/Code%20Reviewed%20by-CodeRabbit-000000?style=flat-square&logo=appveyor&logoColor=white&color=FF570A) ![Version](https://img.shields.io/badge/version-0.5.0-blue) ![Production Ready](https://img.shields.io/badge/status-production--ready-green)
 
 ## 🎯 Why This Exists
 
