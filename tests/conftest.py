@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 # Set environment variables before importing app
 os.environ.setdefault("MCP_ACCESS_TOKEN", "test-token-123")
 os.environ.setdefault("LOG_LEVEL", "DEBUG")
+os.environ.setdefault("EXPOSE_ENDPOINTS_IN_HEALTHZ", "true")
 
 from app.main import app
 

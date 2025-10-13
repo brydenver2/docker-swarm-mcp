@@ -160,7 +160,6 @@ def setup_logging() -> None:
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JSONFormatter())
-    handler.addFilter(sensitive_filter)
     logger.addHandler(handler)
 
     for log_name in ["uvicorn", "uvicorn.access", "uvicorn.error"]:

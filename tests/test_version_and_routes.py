@@ -10,13 +10,8 @@ def test_root_reports_version_and_name(test_client_with_mock):
     assert data["message"] == constants.APP_NAME
 
 
-def test_health_and_healthz_versions_and_routes(test_client_with_mock, monkeypatch):
-    # Enable endpoints exposure for this test
-    monkeypatch.setenv("EXPOSE_ENDPOINTS_IN_HEALTHZ", "true")
-    
-    # Import settings after setting the env var to ensure it picks up the change
-    from app.core.config import settings
-    settings.EXPOSE_ENDPOINTS_IN_HEALTHZ = True
+def test_health_and_healthz_versions_and_routes(test_client_with_mock):
+    # EXPOSE_ENDPOINTS_IN_HEALTHZ is set to true in conftest.py for tests
     
     # Basic health
     r1 = test_client_with_mock.get("/mcp/health")

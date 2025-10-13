@@ -36,7 +36,24 @@ class Settings:
     RETRY_WRITE_JITTER: bool = os.getenv("RETRY_WRITE_JITTER", "true").lower() == "true"
 
     # Authentication and authorization
-    TOKEN_SCOPES: str = os.getenv("TOKEN_SCOPES", "")  # JSON mapping: {"token": ["scope1", "scope2"]}
+    def validate(self):
+        """Validate security-critical settings"""
+        # Fail fast if both MCP_ACCESS_TOKEN and TOKEN_SCOPES are unset
+        if not self.MCP_ACCESS_TOKEN and not self.TOKEN_SCOPES:
+            raise ValueError(
+                "Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be set. "
+                "Set MCP_ACCESS_TOKEN for single-token auth or TOKEN_SCOPES for multi-token auth"
+            )
+
+        # Validate TOKEN_SCOPES JSON format if provided
+        if self.TOKEN_SCOPES:
+            import json
+            try:
+                scopes_dict = json.loads(self.TOKEN_SCOPES)
+                if not isinstance(scopes_dict, dict):
+                    raise ValueError("TOKEN_SCOPES must be a JSON object/dict")
+            except json.JSONDecodeError as e:
+                raise ValueError(f"TOKEN_SCOPES contains invalid JSON: {e}") from None
 
     # Intent classification configuration
     INTENT_CLASSIFICATION_ENABLED: bool = os.getenv("INTENT_CLASSIFICATION_ENABLED", "true").lower() == "true"
