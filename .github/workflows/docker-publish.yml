@@ -100,4 +100,5 @@ jobs:
       - name: Test Docker image
         if: github.event_name == 'pull_request'
         run: |
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TEST_TAG }} --help
+          echo "Testing image ${{ env.TEST_TAG }}"
+          docker run --rm ${{ env.TEST_TAG }} --help
