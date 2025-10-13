@@ -94,7 +94,20 @@ class Settings:
     DEBUG: bool = LOG_LEVEL == "DEBUG"
 
     def validate(self) -> None:
-        """Validate configuration values that need runtime checks."""
+        """
+        Validate runtime-dependent configuration values and normalize enums.
+        
+        Checks performed:
+        - Requires either `MCP_ACCESS_TOKEN` or `TOKEN_SCOPES` to be set.
+        - If `TOKEN_SCOPES` is set, it must be valid JSON and parse to a dict.
+        - Ensures `MCP_TRANSPORT` is one of "http" or "sse" and casts it to that Literal.
+        - Ensures `INTENT_PRECEDENCE` is one of "intent" or "explicit" and casts it to that Literal.
+        
+        Raises:
+            ValueError: If neither `MCP_ACCESS_TOKEN` nor `TOKEN_SCOPES` is set; if `TOKEN_SCOPES`
+                contains invalid JSON or parses to a non-dict; if `MCP_TRANSPORT` or
+                `INTENT_PRECEDENCE` contain invalid values.
+        """
         if not self.MCP_ACCESS_TOKEN and not self.TOKEN_SCOPES:
             raise ValueError(
                 "Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be set. "
