@@ -59,9 +59,11 @@ Add the Docker MCP server to your client's configuration file (see [Client-Speci
 # Health check (no auth required)
 curl http://localhost:8000/mcp/health
 
-# Tool discovery (requires auth)
-curl -H "Authorization: Bearer your-secure-token-here" \
-  http://localhost:8000/mcp/tools
+# Tool discovery (requires auth) - JSON-RPC
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer your-secure-token-here" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
 ```
 
 ---
@@ -79,7 +81,7 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
   "mcpServers": {
     "docker": {
       "transport": "http",
-      "url": "http://localhost:8000/mcp/v1/",
+      "url": "http://localhost:8000/mcp/",
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       }
@@ -88,14 +90,17 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
 }
 ```
 
-**Simple Configuration (Query Parameter):**
+**Simple Configuration (Custom Header):**
 
 ```json
 {
   "mcpServers": {
     "docker": {
       "transport": "http",
-      "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
+      "url": "http://localhost:8000/mcp/",
+      "headers": {
+        "X-Access-Token": "your-secure-token-here"
+      }
     }
   }
 }
@@ -108,7 +113,10 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
   "mcpServers": {
     "docker": {
       "type": "http",
-      "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
+      "url": "http://localhost:8000/mcp/",
+      "headers": {
+        "X-Access-Token": "your-secure-token-here"
+      }
     }
   }
 }
@@ -120,15 +128,18 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
 {
   "mcpServers": {
     "docker": {
-      "serverUrl": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
+      "serverUrl": "http://localhost:8000/mcp/",
+      "headers": {
+        "X-Access-Token": "your-secure-token-here"
+      }
     }
   }
 }
 ```
 
-> **Note**: The trailing slash in `/mcp/v1/` is required for proper routing.
+> **Note**: The trailing slash in `/mcp/` is required for proper routing.
 > 
-> **Authentication Priority**: Authorization header takes precedence over query parameters if both are provided.
+> **Authentication Priority**: Authorization header takes precedence over `X-Access-Token` header if both are provided.
 
 **Kilo Code / Cursor Configuration:**
 
@@ -137,7 +148,7 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
   "mcpServers": {
     "docker": {
       "type": "streamable-http",
-      "url": "http://localhost:8000/mcp/v1/",
+      "url": "http://localhost:8000/mcp/",
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       },
@@ -154,7 +165,10 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
   "mcpServers": {
     "docker": {
       "type": "streamable-http",
-      "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here",
+      "url": "http://localhost:8000/mcp/",
+      "headers": {
+        "X-Access-Token": "your-secure-token-here"
+      },
       "disabled": false
     }
   }
@@ -168,7 +182,7 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
   "mcpServers": {
     "docker-remote": {
       "transport": "http",
-      "url": "https://abc123.ngrok.io/mcp/v1/",
+      "url": "https://abc123.ngrok.io/mcp/",
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       }
@@ -184,7 +198,10 @@ Standard HTTP with JSON-RPC 2.0 over HTTP and Bearer token authentication.
   "mcpServers": {
     "docker-remote": {
       "transport": "http",
-      "url": "https://abc123.ngrok.io/mcp/v1/?accessToken=your-secure-token-here"
+      "url": "https://abc123.ngrok.io/mcp/",
+      "headers": {
+        "X-Access-Token": "your-secure-token-here"
+      }
     }
   }
 }
@@ -201,7 +218,7 @@ Server-Sent Events for streaming responses (optional, not commonly used).
   "mcpServers": {
     "docker": {
       "transport": "sse",
-      "url": "http://localhost:8000/mcp/v1/",
+      "url": "http://localhost:8000/mcp/",
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       }
@@ -221,6 +238,41 @@ poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ---
 
+### Migration from v0.4.x
+
+If you're upgrading from v0.4.x, you must update your client configuration. Query parameter authentication (`?accessToken=...`) has been removed for security reasons. Replace it with the `X-Access-Token` header:
+
+**Before (v0.4.x):**
+
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "url": "http://localhost:8000/mcp/?accessToken=token"
+    }
+  }
+}
+```
+
+**After (v0.5.0+):**
+
+```json
+{
+  "mcpServers": {
+    "docker": {
+      "url": "http://localhost:8000/mcp/",
+      "headers": {
+        "X-Access-Token": "token"
+      }
+    }
+  }
+}
+```
+
+This change keeps tokens out of server logs, browser history, and referrer headers while remaining easy to configure.
+
+---
+
 ## Client-Specific Examples
 
 ### Claude Desktop
@@ -237,7 +289,7 @@ poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
     "docker": {
       "transport": {
         "type": "http",
-        "url": "http://localhost:8000/mcp/v1/",
+        "url": "http://localhost:8000/mcp/",
         "headers": {
           "Authorization": "Bearer your-secure-token-here"
         }
@@ -255,7 +307,10 @@ poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
     "docker": {
       "transport": {
         "type": "http",
-        "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
+        "url": "http://localhost:8000/mcp/",
+        "headers": {
+          "X-Access-Token": "your-secure-token-here"
+        }
       }
     }
   }
@@ -272,7 +327,7 @@ poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
 # Add Docker MCP server to opencode.json
 claude-code mcp add docker \
   --transport http \
-  --url http://localhost:8000/mcp/v1/ \
+  --url http://localhost:8000/mcp/ \
   --header "Authorization: Bearer your-secure-token-here"
 ```
 
@@ -283,7 +338,7 @@ claude-code mcp add docker \
   "mcpServers": {
     "docker": {
       "transport": "http",
-      "url": "http://localhost:8000/mcp/v1/",
+      "url": "http://localhost:8000/mcp/",
       "headers": {
         "Authorization": "Bearer your-secure-token-here"
       }
@@ -299,7 +354,10 @@ claude-code mcp add docker \
   "mcpServers": {
     "docker": {
       "transport": "http",
-      "url": "http://localhost:8000/mcp/v1/?accessToken=your-secure-token-here"
+      "url": "http://localhost:8000/mcp/",
+      "headers": {
+        "X-Access-Token": "your-secure-token-here"
+      }
     }
   }
 }
@@ -317,7 +375,7 @@ export DOCKER_MCP_TOKEN="your-secure-token-here"
   "mcpServers": {
     "docker": {
       "transport": "http",
-      "url": "http://localhost:8000/mcp/v1/",
+      "url": "http://localhost:8000/mcp/",
       "headers": {
         "Authorization": "Bearer ${DOCKER_MCP_TOKEN}"
       }
@@ -338,17 +396,35 @@ import requests
 class DockerMCPClient:
     def __init__(self, url: str, token: str):
         self.url = url
-        self.headers = {"Authorization": f"Bearer {token}"}
-    
-    def get_tools(self, task_type: str | None = None) -> dict:
-        params = {"task-type": task_type} if task_type else {}
-        response = requests.get(
-            f"{self.url}/mcp/tools",
+        # Use X-Access-Token header to keep tokens out of URLs
+        self.headers = {
+            "X-Access-Token": token,
+            "Content-Type": "application/json"
+        }
+        self.request_id = 0
+
+    def _jsonrpc_request(self, method: str, params: dict = None) -> dict:
+        self.request_id += 1
+        payload = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params or {},
+            "id": self.request_id
+        }
+        response = requests.post(
+            f"{self.url}/mcp/",
             headers=self.headers,
-            params=params
+            json=payload
         )
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        if "error" in data:
+            raise Exception(f"MCP Error: {data['error']}")
+        return data["result"]
+
+    def get_tools(self, task_type: str | None = None) -> dict:
+        params = {"task_type": task_type} if task_type else {}
+        return self._jsonrpc_request("tools/list", params)
     
     def list_containers(self, all: bool = False) -> dict:
         params = {"all": str(all).lower()}
@@ -377,24 +453,45 @@ interface MCPConfig {
 class DockerMCPClient {
   private url: string;
   private headers: Record<string, string>;
+  private requestId: number = 0;
 
   constructor(config: MCPConfig) {
     this.url = config.url;
     this.headers = {
-      'Authorization': `Bearer ${config.token}`,
+      'X-Access-Token': config.token,
       'Content-Type': 'application/json'
     };
   }
 
-  async getTools(taskType?: string): Promise<any> {
-    const params = taskType ? `?task-type=${taskType}` : '';
-    const response = await fetch(`${this.url}/mcp/tools${params}`, {
-      headers: this.headers
+  private async jsonrpcRequest(method: string, params: any = {}): Promise<any> {
+    this.requestId++;
+    const payload = {
+      jsonrpc: '2.0',
+      method,
+      params,
+      id: this.requestId
+    };
+
+    const response = await fetch(`${this.url}/mcp/`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify(payload)
     });
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    return response.json();
+
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(`MCP Error: ${JSON.stringify(data.error)}`);
+    }
+    return data.result;
+  }
+
+  async getTools(taskType?: string): Promise<any> {
+    const params = taskType ? { task_type: taskType } : {};
+    return this.jsonrpcRequest('tools/list', params);
   }
 
   async listContainers(all: boolean = false): Promise<any> {
@@ -422,6 +519,10 @@ const containers = await client.listContainers(true);
 ---
 
 ## Security Best Practices
+
+> Tokens are accepted only via HTTP headers (`Authorization: Bearer` or `X-Access-Token`). Query parameter authentication has been removed to prevent tokens from appearing in URLs, logs, and referrer headers.
+> 
+> Prefer the standard Authorization header when your client supports it. Use the `X-Access-Token` header as a simpler alternative for clients that cannot set Bearer tokens.
 
 ### 1. Token Management
 
@@ -547,9 +648,11 @@ docker logs mcp-server
 # Verify token matches
 echo $MCP_ACCESS_TOKEN
 
-# Test authentication
-curl -H "Authorization: Bearer $MCP_ACCESS_TOKEN" \
-  http://localhost:8000/mcp/tools
+# Test authentication (JSON-RPC)
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer $MCP_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
 ```
 
 **Error: "CORS policy"**
@@ -570,9 +673,11 @@ docker restart mcp-server
 # Enable task-type filtering in client config
 # This reduces the number of tools returned
 
-# Example: Only container operations
-curl -H "Authorization: Bearer $MCP_ACCESS_TOKEN" \
-  "http://localhost:8000/mcp/tools?task-type=container-ops"
+# Example: Only container operations (JSON-RPC)
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer $MCP_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{"task_type":"container-ops"}}'
 ```
 
 **Check context size (DEBUG mode):**
@@ -581,9 +686,11 @@ curl -H "Authorization: Bearer $MCP_ACCESS_TOKEN" \
 # Enable DEBUG logging
 export LOG_LEVEL="DEBUG"
 
-# Check response for context_size field
-curl -H "Authorization: Bearer $MCP_ACCESS_TOKEN" \
-  http://localhost:8000/mcp/tools | jq '.context_size'
+# Check response for context_size field (JSON-RPC)
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer $MCP_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}' | jq '.result._metadata.context_size'
 ```
 
 ### Performance Issues
@@ -614,7 +721,7 @@ The recommended approach is to use a **single MCP server configuration** and let
   "mcpServers": {
     "docker": {
       "transport": "http",
-      "url": "http://localhost:8000/mcp/v1/",
+      "url": "http://localhost:8000/mcp/",
       "headers": {
         "Authorization": "Bearer your-token-here"
       }
@@ -659,7 +766,7 @@ User: "Scale the web service to 5 replicas"
 ```json
 {
   "docker": {
-    "url": "http://localhost:8000/mcp/v1/",
+    "url": "http://localhost:8000/mcp/",
     "headers": {"Authorization": "Bearer your-token"}
   }
 }
@@ -673,7 +780,7 @@ User: "Scale the web service to 5 replicas"
   "mcpServers": {
     "docker": {
       "type": "streamable-http",
-      "url": "http://localhost:8000/mcp/v1/",
+      "url": "http://localhost:8000/mcp/",
       "headers": {
         "Authorization": "Bearer your-token-here"
       },
@@ -703,7 +810,7 @@ The meta-tools are available in the `meta-ops` task type and include:
 
 ```bash
 # List meta-tools
-curl -X POST http://localhost:8000/mcp/v1 \
+curl -X POST http://localhost:8000/mcp/ \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -714,7 +821,7 @@ curl -X POST http://localhost:8000/mcp/v1 \
   }'
 
 # Call discover-tools to learn about tool organization
-curl -X POST http://localhost:8000/mcp/v1 \
+curl -X POST http://localhost:8000/mcp/ \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -752,4 +859,3 @@ This ensures you can access all server capabilities regardless of your MCP clien
 - **Tool Definitions**: See `tools.yaml` for complete tool specifications
 - **Server Configuration**: See `.env.example` for all environment variables
 - **Quick Reference**: See `docs/MCP-QUICK-REFERENCE.md` for command cheat sheet
-

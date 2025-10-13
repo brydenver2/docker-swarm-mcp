@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional, List
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -12,4 +13,4 @@ class IPAMConfig(BaseModel):
 
 class IPAM(BaseModel):
     Driver: Optional[str] = Field(default="default")
-    Config: Optional[List[IPAMConfig]] = None
+    Config: Optional[list[IPAMConfig]] = None

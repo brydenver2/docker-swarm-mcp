@@ -61,12 +61,12 @@
         },
         "endpoints": {
           "type": "object",
-          "description": "Custom endpoint paths (optional)",
+          "description": "Custom endpoint paths (optional) - Note: /mcp/tools is deprecated, use JSON-RPC /mcp/ instead",
           "properties": {
-            "tools": {
+            "jsonrpc": {
               "type": "string",
-              "default": "/mcp/tools",
-              "description": "Tool discovery endpoint"
+              "default": "/mcp/",
+              "description": "JSON-RPC endpoint for MCP protocol (recommended)"
             },
             "health": {
               "type": "string",
@@ -161,7 +161,7 @@
             "type": "string"
           },
           "examples": [
-            ["-H", "Authorization: Bearer token", "http://localhost:8000/mcp/tools"]
+            ["-X", "POST", "-H", "Authorization: Bearer token", "-H", "Content-Type: application/json", "-d", "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"tools/list\",\"params\":{}}", "http://localhost:8000/mcp/"]
           ]
         },
         "env": {

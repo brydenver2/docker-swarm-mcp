@@ -2,7 +2,7 @@
 
 **The missing MCP server for Docker Swarm.** Finally, a production-ready MCP that gives you full Docker Swarm control without drowning your AI in tool descriptions.
 
-![Semgrep](https://img.shields.io/badge/Scanned%20with-Semgrep-brightgreen?logo=semgrep) ![Code Reviewed by CodeRabbit](https://img.shields.io/badge/Code%20Reviewed%20by-CodeRabbit-000000?style=flat-square&logo=appveyor&logoColor=white&color=FF570A) ![Version](https://img.shields.io/badge/version-0.2.0-blue) ![Production Ready](https://img.shields.io/badge/status-production--ready-green)
+![Semgrep](https://img.shields.io/badge/Scanned%20with-Semgrep-brightgreen?logo=semgrep) ![Code Reviewed by CodeRabbit](https://img.shields.io/badge/Code%20Reviewed%20by-CodeRabbit-000000?style=flat-square&logo=appveyor&logoColor=white&color=FF570A) ![Version](https://img.shields.io/badge/version-0.5.0-blue) ![Production Ready](https://img.shields.io/badge/status-production--ready-green)
 
 ## 🎯 Why This Exists
 
@@ -272,7 +272,7 @@ These clients use a more structured format that supports passing the API token s
     "docker-swarm-mcp": {
       "transport": {
         "type": "http",
-        "url": "http://localhost:8000/mcp/v1/",
+        "url": "http://localhost:8000/mcp/",
         "headers": {
           "Authorization": "Bearer <YOUR_SECURE_TOKEN_HERE>"
         }
@@ -282,16 +282,19 @@ These clients use a more structured format that supports passing the API token s
 }
 ```
 </details>
-<details>
-<summary><b>Group B: Clients with Simplified URL Configuration [Cursor, VS Code, etc.]</b></summary
 
-These clients often use a flatter, more modern configuration schema. If your client doesn't have a dedicated field for headers, you can pass the token directly in the URL as an `accessToken`.
+> ⚠️ **Security Note**: Query parameter authentication (`?accessToken=...`) has been removed in v0.5.0 for security reasons. Tokens should never appear in URLs because they end up in server logs, browser history, and referrer headers. Use headers instead.
+
+<details>
+<summary><b>Group B: Clients with Custom Header Support [Cursor, VS Code, etc.]</b></summary>
+
+These clients support custom headers but may not support the full `Authorization: Bearer` format. Use the `X-Access-Token` header for simpler configuration while keeping tokens out of the URL.
 
   * **Example Clients:** Cursor &nbsp; • VS Code • Rovo Dev CLI • Qodo Gen • Trae
 
 **Configuration:**
 
-*Note: The key name might be `url` or `serverUrl` depending on the client. Check your client's documentation if one doesn't work.*
+*Note: The key name might be `url` or `serverUrl` depending on the client. Most clients accept a `headers` block for custom headers—check your client's documentation if one doesn't work.*
 
 *Example using `url`:*
 
@@ -300,7 +303,10 @@ These clients often use a flatter, more modern configuration schema. If your cli
   "mcpServers": {
     "docker-swarm-mcp": {
       "type": "http",
-      "url": "http://localhost:8000/mcp/v1/?accessToken=<YOUR_SECURE_TOKEN_HERE>"
+      "url": "http://localhost:8000/mcp/",
+      "headers": {
+        "X-Access-Token": "<YOUR_SECURE_TOKEN_HERE>"
+      }
     }
   }
 }
@@ -312,7 +318,10 @@ These clients often use a flatter, more modern configuration schema. If your cli
 {
   "mcpServers": {
     "docker-swarm-mcp": {
-      "serverUrl": "http://localhost:8000/mcp/v1/?accessToken=<YOUR_SECURE_TOKEN_HERE>"
+      "serverUrl": "http://localhost:8000/mcp/",
+      "headers": {
+        "X-Access-Token": "<YOUR_SECURE_TOKEN_HERE>"
+      }
     }
   }
 }
@@ -327,7 +336,9 @@ The following clients support a streamlined `mcp add` command, allowing you to r
 #### **Claude Code**
 
 ```sh
-claude mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?accessToken=<your-secure-token-here>
+claude mcp add --transport http docker-swarm-mcp \
+  --header "X-Access-Token: <your-secure-token-here>" \
+  http://localhost:8000/mcp/
 ```
 
 -----
@@ -335,7 +346,9 @@ claude mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?a
 #### **Gemini CLI**
 
 ```sh
-gemini mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?accessToken=<your-secure-token-here>
+gemini mcp add --transport http docker-swarm-mcp \
+  --header "X-Access-Token: <your-secure-token-here>" \
+  http://localhost:8000/mcp/
 ```
 
 -----
@@ -343,7 +356,9 @@ gemini mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?a
 #### **Codex CLI**
 
 ```sh
-codex mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?accessToken=<your-secure-token-here>
+codex mcp add --transport http docker-swarm-mcp \
+  --header "X-Access-Token: <your-secure-token-here>" \
+  http://localhost:8000/mcp/
 ```
 
 -----
@@ -351,7 +366,9 @@ codex mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?ac
 #### **Opencode**
 
 ```sh
-opencode mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/?accessToken=<your-secure-token-here>
+opencode mcp add --transport http docker-swarm-mcp \
+  --header "X-Access-Token: <your-secure-token-here>" \
+  http://localhost:8000/mcp/
 ```
 
 -----
@@ -359,10 +376,12 @@ opencode mcp add --transport http docker-swarm-mcp http://localhost:8000/mcp/v1/
 #### **Qwen Code**
 
 ```sh
-qwen mcp add docker-swarm-mcp http://localhost:8000/mcp/v1/?accessToken=<your-secure-token-here>
+qwen mcp add docker-swarm-mcp \
+  --header "X-Access-Token: <your-secure-token-here>" \
+  http://localhost:8000/mcp/
 ```
 
-**Note:** Remember to replace `<your-secure-token-here>` with your actual access token.
+**Note:** Remember to replace `<your-secure-token-here>` with your actual access token. If your CLI does not support custom headers, use `--header "Authorization: Bearer <your-secure-token-here>"` instead.
 </details>
 -----
 
@@ -550,12 +569,20 @@ poetry run uvicorn app.main:app --reload
 # Quick health check
 curl http://localhost:8000/mcp/health
 
-# Test authentication
-curl -H "Authorization: Bearer your-token" \
-  http://localhost:8000/mcp/tools
+# Test authentication (JSON-RPC)
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer your-token" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
+
+# Test authentication with custom header (JSON-RPC)
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "X-Access-Token: your-token" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
 
 # Test with intent detection
-curl -X POST http://localhost:8000/mcp/v1 \
+curl -X POST http://localhost:8000/mcp/ \
   -H "Authorization: Bearer your-token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -565,6 +592,14 @@ curl -X POST http://localhost:8000/mcp/v1 \
     "id": 1
   }'
 ```
+
+> REST API endpoints are now served from `/api/*`. Set `ENABLE_REST_API=true` to expose them during development.
+
+### Poetry Shortcuts
+
+- `poetry run test` – run test suite
+- `poetry run test-fast` – no coverage
+- `poetry run test-cov` – with coverage reports
 
 ## 📖 Documentation
 

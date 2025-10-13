@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Query, Response, status
-from typing import Optional
 import json
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.core.auth import verify_token
-from app.docker_client import get_docker_client, DockerClient
+from app.docker_client import DockerClient, get_docker_client
 from app.schemas.containers import ContainerCreateRequest, ContainerResponse, ContainerSummary
 from app.services import container_service
 

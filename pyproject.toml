@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "docker-swarm-mcp"
-version = "0.2.0"
-description = "HTTP-based Model Context Protocol server for Docker operations with context-preserving tool gating"
+version = "0.5.0"
+description = "HTTP-based Model Context Protocol server for Docker operations with enhanced authentication and security"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 packages = [{include = "app"}]
@@ -10,7 +10,7 @@ packages = [{include = "app"}]
 python = "^3.12"
 fastapi = "0.104.1"
 uvicorn = {extras = ["standard"], version = "0.24.0"}
-docker = "6.1.3"
+docker = "^7.1.0"
 pydantic = "2.5.0"
 pyyaml = "6.0.1"
 urllib3 = ">=2.5.0,<3.0"
@@ -24,6 +24,7 @@ pytest-cov = "^4.1"
 mypy = "^1.7"
 ruff = "^0.1"
 bandit = "^1.7"
+httpx = ">=0.24,<0.28"  # FastAPI 0.104.x + Starlette 0.27.x expect httpx<0.28
 
 [build-system]
 requires = ["poetry-core"]
@@ -61,3 +62,8 @@ python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
 addopts = "--cov=app --cov-report=term-missing --cov-report=html"
+
+[tool.poetry.scripts]
+test = "poetry_scripts:test"
+test-fast = "poetry_scripts:test_fast"
+test-cov = "poetry_scripts:test_cov"

@@ -1,13 +1,14 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Dict
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class VolumeCreateRequest(BaseModel):
     name: str = Field(..., description="Volume name")
     driver: Optional[str] = Field("local", description="Volume driver")
-    options: Optional[Dict[str, str]] = Field(None, description="Driver-specific options")
-    labels: Optional[Dict[str, str]] = Field(None, description="Volume metadata labels")
+    options: Optional[dict[str, str]] = Field(None, description="Driver-specific options")
+    labels: Optional[dict[str, str]] = Field(None, description="Volume metadata labels")
 
     class Config:
         json_schema_extra = {

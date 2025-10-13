@@ -11,6 +11,17 @@ class SensitiveDataFilter(logging.Filter):
     """Filter to redact sensitive headers and tokens from log records"""
 
     def filter(self, record: logging.LogRecord) -> bool:
+        """
+        Redacts sensitive headers, cookies, and token-like values on a LogRecord before it is emitted.
+        
+        This method removes common authorization and access-token headers from record.headers, replaces record.cookies with a redacted placeholder, and replaces string attributes that contain token-like or key-like values (including Bearer tokens, JWT-like strings, and long strings whose attribute names include "token" or "key") with a redacted placeholder. The record is modified in place.
+        
+        Parameters:
+            record (logging.LogRecord): The log record to redact.
+        
+        Returns:
+            bool: `True` to allow the (redacted) record to be processed/handled by the logging system.
+        """
         import re
 
         # Redact Authorization header and tokens from extra data
@@ -20,6 +31,9 @@ class SensitiveDataFilter(logging.Filter):
                 # Drop Authorization header entirely
                 headers.pop("authorization", None)
                 headers.pop("Authorization", None)
+                # Drop custom access token header variants
+                headers.pop("X-Access-Token", None)
+                headers.pop("x-access-token", None)
                 record.headers = headers
 
         if hasattr(record, "cookies"):
@@ -80,10 +94,25 @@ class JSONFormatter(logging.Formatter):
 
 
 def redact_secrets(data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Recursively redact sensitive values in a mapping intended for logging.
+    
+    Processes the provided mapping and returns a copy where keys that indicate secrets (for example, tokens, passwords, API keys, authorization headers, and similar) are replaced with "***REDACTED***". Special cases:
+    - "query_params" dictionaries: any parameter named "accesstoken" or "access_token" is redacted while other params are preserved.
+    - Nested dictionaries and lists of dictionaries are processed recursively.
+    - Long string values (>100 chars) containing certificate/PEM markers ("BEGIN", "-----") or when the key contains "yaml" are truncated to the first 50 characters and appended with "...***REDACTED***"; other long strings are preserved.
+    
+    Parameters:
+        data (dict[str, Any]): The mapping to inspect and redact for sensitive information.
+    
+    Returns:
+        dict[str, Any]: A redacted copy of the input mapping with sensitive values replaced or truncated as described.
+    """
     sensitive_keys = {
         "token", "password", "secret", "api_key", "authorization",
         "bearer", "credentials", "auth", "access_token", "refresh_token",
-        "accesstoken"  # Handle camelCase query parameter
+        "accesstoken",  # Handle camelCase query parameter (legacy)
+        "x-access-token"  # Ensure custom header is always redacted
     }
 
     redacted = {}

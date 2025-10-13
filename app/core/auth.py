@@ -1,7 +1,6 @@
 import hmac
 import json
 import logging
-from typing import Any
 
 from fastapi import HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -15,34 +14,51 @@ logger = logging.getLogger(__name__)
 class HTTPBearerOrQuery(HTTPBearer):
     """
     Custom security class that accepts Bearer tokens from Authorization header
-    OR accessToken query parameter for simpler client configuration.
-    
+    OR X-Access-Token header for simpler client configuration.
+
     Priority:
     1. Authorization header (standard, takes precedence)
-    2. accessToken query parameter (fallback for simpler configs)
+    2. X-Access-Token header (fallback for simpler configs)
+
+    Note:
+        Query parameter authentication has been removed for security reasons
+        (tokens should never appear in URLs).
+
+    TODO: Legacy class name HTTPBearerOrQuery is retained for backward compatibility.
+          The class no longer accepts query parameters and only accepts header-based
+          authentication (Authorization header or X-Access-Token header).
+          Consider renaming to HTTPBearerOrHeader in a future breaking change.
     """
-    
+
     async def __call__(self, request: Request) -> HTTPAuthorizationCredentials:
         # Try Authorization header first (standard behavior)
+        """
+        Accept an access token from the Authorization header (Bearer) or the X-Access-Token header and return HTTP authorization credentials.
+        
+        If the Authorization header contains a Bearer token, that token is used. If not, the X-Access-Token header is used as a fallback. Query-parameter authentication is not supported.
+        
+        Returns:
+            HTTPAuthorizationCredentials: Credentials containing the scheme (typically "Bearer") and the token string.
+        
+        Raises:
+            HTTPException: With status 403 and WWW-Authenticate: "Bearer" when no valid token is found.
+        """
         authorization = request.headers.get("Authorization")
         scheme, credentials = get_authorization_scheme_param(authorization)
-        
+
         if scheme and scheme.lower() == "bearer" and credentials:
             return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
-        
-        # Fallback to query parameter
-        access_token = (
-            request.query_params.get("accessToken") or 
-            request.query_params.get("access_token")
-        )
-        
+
+        # Fallback to custom header for clients that cannot set Authorization
+        access_token = request.headers.get("X-Access-Token")
+
         if access_token:
             logger.debug(
-                "Token extracted from query parameter",
-                extra={"query_param": "accessToken"}
+                "Token extracted from X-Access-Token header",
+                extra={"header": "X-Access-Token"}
             )
             return HTTPAuthorizationCredentials(scheme="Bearer", credentials=access_token)
-        
+
         # No valid token found
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -80,15 +96,15 @@ async def verify_token_with_scopes(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ) -> set[str]:
     """
-    Verify token and extract scopes for MCP endpoint authorization
-
-    Supports:
-    1. Multiple tokens with per-token scopes (TOKEN_SCOPES JSON mapping)
-    2. JWT token claims (if using JWT)
-    3. Single shared token (MCP_ACCESS_TOKEN with default admin scope)
-
+    Validate the provided access token and return the set of authorization scopes for MCP endpoints.
+    
+    Determines scopes from a per-token mapping, from JWT claims, or from the single shared token configuration and raises HTTPException on misconfiguration or invalid token.
+    
     Returns:
-        Set of scope strings (e.g., {"admin", "container-ops", "read-only"})
+        set[str]: The resolved set of scope strings (for example {"admin", "container-ops", "read-only"}).
+    
+    Raises:
+        HTTPException: 500 if neither TOKEN_SCOPES nor MCP_ACCESS_TOKEN is configured; 401 if the token is invalid or missing.
     """
     token = credentials.credentials
 
@@ -99,7 +115,7 @@ async def verify_token_with_scopes(
             if token in token_scopes_mapping:
                 scopes = set(token_scopes_mapping[token])
                 logger.debug(
-                    f"Token verified with scopes from TOKEN_SCOPES mapping",
+                    "Token verified with scopes from TOKEN_SCOPES mapping",
                     extra={"scopes": list(scopes)}
                 )
                 return scopes

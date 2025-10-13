@@ -13,8 +13,23 @@ async def docker_not_found_handler(request: Request, exc: NotFound) -> JSONRespo
 
 
 async def docker_api_error_handler(request: Request, exc: APIError) -> JSONResponse:
-    status_code = exc.response.status_code if hasattr(exc, 'response') else 424
+    """
+    Handle a Docker APIError by returning a JSONResponse whose status and message are derived from the error.
     
+    Maps the error as follows:
+    - If the error's HTTP status is 400, returns 400 with detail "Invalid request: {exc.explanation}".
+    - If the error's HTTP status is 409, returns 409 with detail "Conflict: {exc.explanation}".
+    - Otherwise, returns 424 with detail "Docker API error: {exc.explanation}".
+    
+    Parameters:
+        request (Request): The incoming HTTP request (unused by this handler).
+        exc (APIError): The Docker APIError; if it has a `response.status_code` that value is used to determine the mapped status, and `exc.explanation` is used for the response detail.
+    
+    Returns:
+        JSONResponse: A response containing a `detail` message and the mapped HTTP status code.
+    """
+    status_code = exc.response.status_code if hasattr(exc, 'response') else 424
+
     if status_code == 400:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,

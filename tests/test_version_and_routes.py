@@ -1,4 +1,3 @@
-from importlib import reload
 
 from app.core import constants
 
@@ -11,14 +10,21 @@ def test_root_reports_version_and_name(test_client_with_mock):
     assert data["message"] == constants.APP_NAME
 
 
-def test_health_and_healthz_versions_and_routes(test_client_with_mock):
+def test_health_and_healthz_versions_and_routes(test_client_with_mock, monkeypatch):
+    # Enable endpoints exposure for this test
+    monkeypatch.setenv("EXPOSE_ENDPOINTS_IN_HEALTHZ", "true")
+    
+    # Import settings after setting the env var to ensure it picks up the change
+    from app.core.config import settings
+    settings.EXPOSE_ENDPOINTS_IN_HEALTHZ = True
+    
     # Basic health
     r1 = test_client_with_mock.get("/mcp/health")
     assert r1.status_code == 200
     d1 = r1.json()
     assert d1["version"] == constants.APP_VERSION
 
-    # Detailed health exposes route map
+    # Detailed health exposes route map when feature flag is enabled
     r2 = test_client_with_mock.get("/mcp/healthz")
     assert r2.status_code == 200
     d2 = r2.json()
@@ -41,7 +47,7 @@ def test_initialize_returns_version_constant(test_client_with_mock):
     # Authorization header provided by fixture via TEST_TOKEN
     from tests.conftest import TEST_TOKEN
 
-    resp = test_client_with_mock.post("/mcp/v1", json=payload, headers={"Authorization": f"Bearer {TEST_TOKEN}"})
+    resp = test_client_with_mock.post("/mcp/", json=payload, headers={"Authorization": f"Bearer {TEST_TOKEN}"})
     assert resp.status_code == 200
     body = resp.json()
     assert body["jsonrpc"] == "2.0"

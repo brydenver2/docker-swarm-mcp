@@ -2,7 +2,7 @@
 from typing import Any
 
 from app.docker_client import DockerClient
-from app.utils.retry import retry_read, retry_write, retry_none
+from app.utils.retry import retry_read, retry_write
 
 
 @retry_read(operation_name="list_containers")
@@ -20,7 +20,7 @@ async def create_container(docker_client: DockerClient, params: dict[str, Any]) 
 
 
 @retry_write(operation_name="start_container")
-async def start_container(docker_client: DockerClient, params: dict[str, Any]) -> None:
+async def start_container(docker_client: DockerClient, params: dict[str, Any]) -> dict[str, Any]:
     """Start a Docker container"""
     container_id = params.get("id")
     if not container_id:
@@ -30,7 +30,7 @@ async def start_container(docker_client: DockerClient, params: dict[str, Any]) -
 
 
 @retry_write(operation_name="stop_container")
-async def stop_container(docker_client: DockerClient, params: dict[str, Any]) -> None:
+async def stop_container(docker_client: DockerClient, params: dict[str, Any]) -> dict[str, Any]:
     """Stop a Docker container"""
     container_id = params.get("id")
     timeout = params.get("timeout", 10)
@@ -41,7 +41,7 @@ async def stop_container(docker_client: DockerClient, params: dict[str, Any]) ->
 
 
 @retry_write(operation_name="remove_container")
-async def remove_container(docker_client: DockerClient, params: dict[str, Any]) -> None:
+async def remove_container(docker_client: DockerClient, params: dict[str, Any]) -> dict[str, Any]:
     """Remove a Docker container"""
     container_id = params.get("id")
     force = params.get("force", False)
@@ -53,14 +53,30 @@ async def remove_container(docker_client: DockerClient, params: dict[str, Any]) 
 
 @retry_read(operation_name="get_logs")
 async def get_logs(docker_client: DockerClient, params: dict[str, Any]) -> str:
-    """Get Docker container logs"""
+    """
+    Retrieve logs for a Docker container.
+    
+    Parameters:
+        docker_client (DockerClient): Docker client used to fetch logs.
+        params (dict): Options for log retrieval. Recognized keys:
+            - id (str): Container identifier (required).
+            - tail (int): Number of lines from the end of the logs (default 100).
+            - since (int | str | None): Return logs since this timestamp (optional).
+            - follow (bool): Whether to follow the log stream (default False).
+    
+    Returns:
+        str: The requested logs as a string.
+    
+    Raises:
+        ValueError: If the required `id` parameter is missing.
+    """
     container_id = params.get("id")
     tail = params.get("tail", 100)
     since = params.get("since")
     follow = params.get("follow", False)
     if not container_id:
         raise ValueError("Missing required parameter: id")
-    
+
     # Only retry if not following (following is not idempotent)
     if follow:
         return docker_client.get_logs(container_id, tail=tail, since=since, follow=follow)

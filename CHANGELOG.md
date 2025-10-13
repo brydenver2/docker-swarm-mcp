@@ -5,6 +5,71 @@ All notable changes to the Docker Swarm MCP Server will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-10-14
+
+### ⚠️ BREAKING CHANGES
+
+- **Authentication**: Query parameter authentication (`?accessToken=...`) has been removed for security reasons.
+- **Migration Required**: Update client configurations to send tokens via headers:
+  - Standard: `Authorization: Bearer <token>`
+  - Simple: `X-Access-Token: <token>`
+- **Reason**: Tokens in URLs leak through server logs, browser history, referrer headers, and network monitoring tools.
+
+### Security
+
+- Eliminated token leakage via URL-based authentication.
+- Tokens are now accepted only through headers (Authorization or X-Access-Token).
+- Enhanced logging redaction to cover the `X-Access-Token` header.
+
+### Changed
+
+- Updated `HTTPBearerOrQuery` security class to prefer Authorization header and fall back to `X-Access-Token`.
+- Refreshed documentation across README and docs to explain header-only authentication.
+- Reworked MCP protocol tests to verify header-based authentication paths.
+- Updated authentication tests to use `test_client_with_mock` fixture for proper app state initialization.
+
+### Fixed
+
+- **Authentication test design issues**: Tests were checking auth on the public `/mcp/health` endpoint instead of authenticated JSON-RPC endpoints; updated failing cases to target `/mcp/` methods that enforce authentication.
+- **Updated 9 authentication tests** to properly validate token checking on authenticated endpoints.
+- **Clarified public health endpoint intent** so monitoring and orchestration tools continue to function without credentials.
+- **Removed deprecated REST-style `/mcp/tools` endpoint**: Deleted the `mcp_router` import and registration from `app/main.py` that conflicted with the new JSON-RPC endpoint structure introduced in v0.3.0.
+- **Standardized test token usage**: Updated all test files to consistently use `"test-token-123"` token for authentication testing.
+
+### Testing
+
+- All 33 authentication tests now pass (11 in `test_auth_simple.py` + 22 in `test_auth_endpoints.py`).
+- Tests comprehensively validate authentication on JSON-RPC endpoints, header precedence, token rejection, and security features.
+- Documented public health endpoint access as intentional design for monitoring systems.
+- Comprehensive coverage of authentication methods (Authorization header, X-Access-Token header).
+- Edge case testing includes timing attack resistance, whitespace handling, and multiple header scenarios.
+
+### Documentation
+
+- Updated `docs/AUTH_TEST_RESULTS.md` with comprehensive test coverage summary.
+- Clarified test design and authentication validation approach.
+
+### Migration Guide
+
+- See `README.md` and `docs/MCP-CLIENT-SETUP.md` for detailed migration instructions.
+- All configurations using `?accessToken=...` must switch to header-based authentication before upgrading.
+
+## [0.4.0] - 2025-10-13
+
+### Added
+
+- **Poetry Script Shortcuts**: Added `poetry run test`, `poetry run test-fast`, and `poetry run test-cov` console entry points for quick test workflows.
+
+### Changed
+
+- **MCP Endpoint Alignment**: JSON-RPC endpoint now lives at `/mcp/` (trailing slash required) to match client documentation.
+- **REST API Mount Point**: Optional REST routers are exposed under `/api/*` when `ENABLE_REST_API=true`, keeping MCP transport default.
+- **Documentation Refresh**: README and quick reference updated to reflect version 0.5.0 and new routing details.
+
+### Fixed
+
+- **Poetry Execution**: Restored the backing module so `poetry run test` and related scripts execute without import errors.
+
 ## [0.3.0] - 2025-10-12
 
 This release adds optional Tailscale VPN integration for secure remote access to Docker Swarm environments. The integration provides encrypted networking while maintaining backward compatibility and comprehensive security controls.
@@ -241,4 +306,3 @@ This release adds multiple mechanisms for tool discovery to ensure compatibility
 - Schema validation for requests and responses
 - Docker client support for local socket, TLS, and SSH connections
 - Comprehensive documentation and client setup guides
-
