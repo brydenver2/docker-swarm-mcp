@@ -44,6 +44,9 @@ class Settings:
     INTENT_MIN_CONFIDENCE: float = float(os.getenv("INTENT_MIN_CONFIDENCE", "0.0"))
     INTENT_PRECEDENCE: Literal["intent", "explicit"] = os.getenv("INTENT_PRECEDENCE", "intent")  # type: ignore
 
+    # Security and debugging settings
+    EXPOSE_ENDPOINTS_IN_HEALTHZ: bool = os.getenv("EXPOSE_ENDPOINTS_IN_HEALTHZ", "false").lower() == "true"
+
     # Logging and CORS
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     ALLOWED_ORIGINS: list[str] = os.getenv("ALLOWED_ORIGINS", "*").split(",")

@@ -20,7 +20,7 @@ async def create_container(docker_client: DockerClient, params: dict[str, Any]) 
 
 
 @retry_write(operation_name="start_container")
-async def start_container(docker_client: DockerClient, params: dict[str, Any]) -> None:
+async def start_container(docker_client: DockerClient, params: dict[str, Any]) -> dict[str, Any]:
     """Start a Docker container"""
     container_id = params.get("id")
     if not container_id:
@@ -30,7 +30,7 @@ async def start_container(docker_client: DockerClient, params: dict[str, Any]) -
 
 
 @retry_write(operation_name="stop_container")
-async def stop_container(docker_client: DockerClient, params: dict[str, Any]) -> None:
+async def stop_container(docker_client: DockerClient, params: dict[str, Any]) -> dict[str, Any]:
     """Stop a Docker container"""
     container_id = params.get("id")
     timeout = params.get("timeout", 10)
@@ -41,7 +41,7 @@ async def stop_container(docker_client: DockerClient, params: dict[str, Any]) ->
 
 
 @retry_write(operation_name="remove_container")
-async def remove_container(docker_client: DockerClient, params: dict[str, Any]) -> None:
+async def remove_container(docker_client: DockerClient, params: dict[str, Any]) -> dict[str, Any]:
     """Remove a Docker container"""
     container_id = params.get("id")
     force = params.get("force", False)

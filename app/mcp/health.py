@@ -1,3 +1,4 @@
+from typing import Any
 from fastapi import APIRouter, Request
 
 from app.core.config import settings
@@ -7,7 +8,7 @@ router = APIRouter()
 
 
 @router.get("/health")
-async def health_check(request: Request) -> dict[str, str | bool | int]:
+async def health_check(request: Request) -> dict[str, Any]:
     """
     Perform a basic health check that verifies Docker reachability and reports service status.
     
@@ -34,7 +35,7 @@ async def health_check(request: Request) -> dict[str, str | bool | int]:
 
 
 @router.get("/healthz")
-async def detailed_health_check(request: Request) -> dict[str, str | bool | int]:
+async def detailed_health_check(request: Request) -> dict[str, Any]:
     """
     Provide a detailed health status for the service, reflecting MCP readiness, Docker reachability, authentication setup, and available tools.
     
@@ -47,7 +48,7 @@ async def detailed_health_check(request: Request) -> dict[str, str | bool | int]
             - tool_count (int): Number of tools discovered in the MCP tool registry.
             - protocol_version (str): MCP protocol version from configuration.
             - version (str): Application version.
-            - endpoints (dict): Exposed MCP route metadata.
+            - endpoints (dict, optional): Exposed MCP route metadata (only when EXPOSE_ENDPOINTS_IN_HEALTHZ=true).
     """
     try:
         docker_client = request.app.state.docker_client
@@ -86,13 +87,18 @@ async def detailed_health_check(request: Request) -> dict[str, str | bool | int]
     else:
         status = "unhealthy"
 
-    return {
+    response_data = {
         "status": status,
         "mcp_ready": mcp_ready,
         "docker_reachable": docker_reachable,
         "auth_configured": auth_configured,
         "tool_count": tool_count,
         "protocol_version": settings.MCP_PROTOCOL_VERSION,
-        "version": APP_VERSION,
-        "endpoints": MCP_ROUTES
+        "version": APP_VERSION
     }
+    
+    # Only include endpoints when explicitly enabled via feature flag
+    if settings.EXPOSE_ENDPOINTS_IN_HEALTHZ:
+        response_data["endpoints"] = MCP_ROUTES
+    
+    return response_data
