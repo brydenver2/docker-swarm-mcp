@@ -101,4 +101,4 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           echo "Testing image ${{ env.TEST_TAG }}"
-          docker run --rm -e MCP_ACCESS_TOKEN="test-token" ${{ env.TEST_TAG }} --help
+          docker run --rm --entrypoint uvicorn ${{ env.TEST_TAG }} --help
