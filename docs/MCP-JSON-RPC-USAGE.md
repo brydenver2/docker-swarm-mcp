@@ -90,7 +90,7 @@ Handshake to establish MCP protocol version and capabilities.
     "protocolVersion": "2024-11-05",
     "serverInfo": {
       "name": "docker-swarm-mcp",
-      "version": "0.4.0"
+      "version": "0.5.0"
     },
     "capabilities": {
       "tools": {

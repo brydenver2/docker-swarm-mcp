@@ -364,7 +364,7 @@ docs/dependencies/             # Dependency reference stubs
 
 ## Version Info
 
-- **Server Version**: 0.4.0
+- **Server Version**: 0.5.0
 - **Python**: 3.12+
 - **Docker Engine**: 24+
 - **MCP Protocol**: HTTP/SSE transport

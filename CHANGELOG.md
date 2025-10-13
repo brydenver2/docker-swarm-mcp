@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **MCP Endpoint Alignment**: JSON-RPC endpoint now lives at `/mcp/` (trailing slash required) to match client documentation.
 - **REST API Mount Point**: Optional REST routers are exposed under `/api/*` when `ENABLE_REST_API=true`, keeping MCP transport default.
-- **Documentation Refresh**: README and quick reference updated to reflect version 0.4.0 and new routing details.
+- **Documentation Refresh**: README and quick reference updated to reflect version 0.5.0 and new routing details.
 
 ### Fixed
 
