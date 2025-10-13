@@ -549,7 +549,7 @@ class TestTokenScopesAndRequiredScopes:
         )
 
         # Test: user token with limited scope
-        response_limited = client.post(
+        response_limited = test_client_with_mock.post(
             "/mcp/",
             json={
                 "jsonrpc": "2.0",
