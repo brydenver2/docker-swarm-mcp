@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """
-Simple MCP endpoint test script that bypasses Docker connectivity issues
-Tests the MCP JSON-RPC endpoints directly using mock data
+Simple MCP endpoint test script that bypasses Docker connectivity issues.
+
+When executed via pytest, these tests expect a running MCP server at BASE_URL.
+If the server is not reachable the tests will be skipped gracefully so that
+the broader unit-test suite can run offline.
 """
+
+from __future__ import annotations
 
 import json
 import time
-from typing import Any
+from typing import Any, Dict
 
+import pytest
 import requests
 
 # Configuration
@@ -15,441 +21,282 @@ BASE_URL = "http://localhost:8000"
 TOKEN = "98a0305163506ea4f95b9b6c206ac459c4cfa3aeb97c24b31c89660e5d33f928"
 HEADERS = {
     "Authorization": f"Bearer {TOKEN}",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
 }
 
-def test_endpoint(method: str, endpoint: str, data: dict[str, Any] = None) -> dict[str, Any]:
+
+def _call_endpoint(
+    method: str,
+    endpoint: str,
+    data: Dict[str, Any] | None = None,
+    *,
+    headers: Dict[str, str] | None = None,
+    raw_body: str | None = None,
+    timeout: int = 10,
+) -> Dict[str, Any]:
     """
-    Send an HTTP GET or POST to an MCP endpoint and return the server response.
-    
-    Parameters:
-        method (str): HTTP method to use; expected "GET" or "POST".
-        endpoint (str): Path appended to BASE_URL (for example "/mcp/healthz" or "/mcp/").
-        data (dict[str, Any], optional): JSON payload to include for POST requests.
-    
+    Send an HTTP request to the MCP endpoint and capture the response.
+
     Returns:
-        dict[str, Any]: Parsed JSON response when the response is valid JSON;
-        if the response body is not JSON, returns {"raw_response": "<text>"}.
-        On connection failure returns {"error": "connection_failed"}; on other errors
-        returns {"error": "<error message>"}.
+        dict: On success, a mapping containing:
+            - "status": HTTP status code
+            - "json": Parsed JSON payload (when available)
+            - "raw": Raw text body (when JSON parsing fails)
+        On connection error, {"error": "connection_failed"}.
+        On other unexpected exceptions, {"error": "<message>"}.
     """
     url = f"{BASE_URL}{endpoint}"
+    request_headers = headers or HEADERS
 
     try:
         if method.upper() == "GET":
-            response = requests.get(url, headers=HEADERS, timeout=10)
+            response = requests.get(url, headers=request_headers, timeout=timeout)
         elif method.upper() == "POST":
-            response = requests.post(url, headers=HEADERS, json=data, timeout=10)
+            if raw_body is not None:
+                response = requests.post(url, headers=request_headers, data=raw_body, timeout=timeout)
+            else:
+                response = requests.post(url, headers=request_headers, json=data, timeout=timeout)
         else:
             raise ValueError(f"Unsupported method: {method}")
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"TEST: {method} {endpoint}")
         print(f"STATUS: {response.status_code}")
 
         try:
             response_json = response.json()
             print(f"RESPONSE:\n{json.dumps(response_json, indent=2)}")
-            return response_json
+            return {"status": response.status_code, "json": response_json}
         except json.JSONDecodeError:
             print(f"RAW RESPONSE: {response.text}")
-            return {"raw_response": response.text}
+            return {"status": response.status_code, "raw": response.text}
 
     except requests.exceptions.ConnectionError:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"TEST: {method} {endpoint}")
         print("STATUS: CONNECTION FAILED - Server not running")
         return {"error": "connection_failed"}
-    except Exception as e:
-        print(f"\n{'='*60}")
+    except Exception as exc:  # pragma: no cover - diagnostic output path
+        print(f"\n{'=' * 60}")
         print(f"TEST: {method} {endpoint}")
-        print(f"ERROR: {e}")
-        return {"error": str(e)}
+        print(f"ERROR: {exc}")
+        return {"error": str(exc)}
+
+
+def _require_running_server(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Skip the current test if the MCP server is not reachable.
+    """
+    if result.get("error") == "connection_failed":
+        pytest.skip(f"MCP server not running at {BASE_URL}; skipping endpoint check.")
+    return result
+
 
 def test_mcp_initialize():
-    """
-    Invoke the MCP "initialize" JSON-RPC method on the configured server.
-    
-    Sends a JSON-RPC `initialize` request with protocolVersion, capabilities, and clientInfo to the /mcp/ endpoint.
-    
-    Returns:
-        dict: Parsed JSON response from the endpoint if available; otherwise a dict containing the raw response text or an `error` entry describing the failure.
-    """
-    print("\n🔧 Testing MCP Initialize Endpoint")
-
-    data = {
+    payload = {
         "jsonrpc": "2.0",
         "method": "initialize",
         "id": 1,
         "params": {
             "protocolVersion": "2024-11-05",
-            "capabilities": {
-                "tools": {}
-            },
-            "clientInfo": {
-                "name": "test-client",
-                "version": "1.0.0"
-            }
-        }
+            "capabilities": {"tools": {}},
+            "clientInfo": {"name": "test-client", "version": "1.0.0"},
+        },
     }
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", payload))
+    assert result["status"] == 200
+    body = result["json"]
+    assert body["jsonrpc"] == "2.0"
+    assert body["result"]["serverInfo"]["name"] == "docker-swarm-mcp"
 
-    return test_endpoint("POST", "/mcp/", data)
 
 def test_tools_list():
-    """
-    Invoke the MCP `tools/list` JSON-RPC endpoint and check the default tools list for meta-tools.
-    
-    Sends a `tools/list` request to the MCP server and prints a warning if any meta-tools
-    (`discover-tools`, `list-task-types`, `intent-query-help`) are present in the returned
-    default tools list; otherwise confirms their absence.
-    
-    Returns:
-        dict: Response dictionary containing an HTTP status and either a parsed JSON
-        `result` (when available) or an error/raw response text.
-    """
-    print("\n🔧 Testing Tools List Endpoint")
+    payload = {"jsonrpc": "2.0", "method": "tools/list", "id": 2}
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", payload))
+    assert result["status"] == 200
+    tools = result["json"]["result"]["tools"]
+    assert tools, "tools/list should return at least one tool"
+    tool_names = {tool.get("name") for tool in tools}
+    meta_tools = {"discover-tools", "list-task-types", "intent-query-help"}
+    assert tool_names.isdisjoint(meta_tools), "Meta tools should not appear in default tools/list output"
 
-    data = {
-        "jsonrpc": "2.0",
-        "method": "tools/list",
-        "id": 2
-    }
-
-    result = test_endpoint("POST", "/mcp/", data)
-
-    # Verify that meta-tools are not in the default list
-    if result.get("status") == 200 and "result" in result:
-        tools_data = result["result"]
-        if "tools" in tools_data:
-            tool_names = [tool.get("name") for tool in tools_data["tools"]]
-            meta_tools = ["discover-tools", "list-task-types", "intent-query-help"]
-            found_meta_tools = [name for name in meta_tools if name in tool_names]
-
-            if found_meta_tools:
-                print(f"⚠️  Warning: Found meta-tools in default list: {found_meta_tools}")
-            else:
-                print("✅ Verified: No meta-tools in default tools/list")
-
-    return result
 
 def test_prompts_list():
-    """
-    Invoke the MCP JSON-RPC "prompts/list" method and return the server response.
-    
-    Sends a JSON-RPC request for "prompts/list" to the /mcp/ endpoint and returns the response parsed as JSON when possible; if JSON parsing fails the returned dict contains the raw response text or an error entry.
-    
-    Returns:
-        dict: Parsed JSON response from the server, or a dict containing raw response text or an error description.
-    """
-    print("\n🔧 Testing Prompts List Endpoint")
+    payload = {"jsonrpc": "2.0", "method": "prompts/list", "params": {}, "id": 7}
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", payload))
+    assert result["status"] == 200
+    prompts = result["json"]["result"]["prompts"]
+    assert isinstance(prompts, list)
+    assert any(prompt["name"] == "discover-tools" for prompt in prompts)
 
-    data = {
-        "jsonrpc": "2.0",
-        "method": "prompts/list",
-        "params": {},
-        "id": 7
-    }
-
-    return test_endpoint("POST", "/mcp/", data)
 
 def test_prompts_get():
-    """
-    Invoke the prompts/get JSON-RPC method for the "discover-tools" prompt and return the endpoint response.
-    
-    Sends a JSON-RPC request for method `prompts/get` with `name` set to `"discover-tools"`. If the response contains a `result.messages` list, asserts that the first message's `content.text` includes the substring `"container-ops"` and prints a confirmation when the assertion passes.
-    
-    Returns:
-        dict: Parsed JSON response from the endpoint, or a diagnostic/error dict if the request fails or the response is not valid JSON.
-    """
-    print("\n🔧 Testing Prompts Get Endpoint")
-
-    data = {
+    payload = {
         "jsonrpc": "2.0",
         "method": "prompts/get",
-        "params": {
-            "name": "discover-tools"
-        },
-        "id": 8
+        "params": {"name": "discover-tools"},
+        "id": 8,
     }
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", payload))
+    assert result["status"] == 200
+    messages = result["json"]["result"]["messages"]
+    assert messages
+    content_text = messages[0]["content"]["text"]
+    assert "container-ops" in content_text
 
-    result = test_endpoint("POST", "/mcp/", data)
-
-    # Optional assertion to ensure dynamic content includes known task type
-    if isinstance(result, dict) and "result" in result and "messages" in result["result"]:
-        messages = result["result"]["messages"]
-        if messages and "content" in messages[0] and "text" in messages[0]["content"]:
-            content_text = messages[0]["content"]["text"]
-            assert "container-ops" in content_text, "discover-tools prompt should include container-ops task type"
-            print("✅ Assertion passed: discover-tools prompt includes dynamic content")
-
-    return result
 
 def test_prompts_get_invalid():
-    """
-    Invoke the MCP `prompts/get` method using an invalid prompt name.
-    
-    Returns:
-        dict: The HTTP response parsed as JSON when possible. If JSON parsing fails, a dict containing the raw response text or an `error` entry describing the failure.
-    """
-    print("\n🔧 Testing Invalid Prompt Name")
-
-    data = {
+    payload = {
         "jsonrpc": "2.0",
         "method": "prompts/get",
-        "params": {
-            "name": "invalid-prompt"
-        },
-        "id": 9
+        "params": {"name": "invalid-prompt"},
+        "id": 9,
     }
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", payload))
+    assert result["status"] == 200
+    assert "error" in result["json"]
+    assert result["json"]["error"]["code"] == -32602
 
-    return test_endpoint("POST", "/mcp/", data)
 
 def test_tools_call():
-    """
-    Invoke the MCP `tools/call` method for `list-containers`, seeding session tools first by calling `tools/list`.
-    
-    Returns:
-        dict: The response from the `tools/call` request — typically parsed JSON. May contain raw response text or an `error` description if parsing or connection failed.
-    """
-    print("\n🔧 Testing Tools Call Endpoint")
+    # Seed session tools
+    list_payload = {"jsonrpc": "2.0", "method": "tools/list", "id": 2}
+    _require_running_server(_call_endpoint("POST", "/mcp/", list_payload))
 
-    # First call tools/list to seed session_tools
-    print("First calling tools/list to seed session tools...")
-    list_data = {
-        "jsonrpc": "2.0",
-        "method": "tools/list",
-        "id": 2
-    }
-    test_endpoint("POST", "/mcp/", list_data)
-
-    # Then call tools/call
-    data = {
+    call_payload = {
         "jsonrpc": "2.0",
         "method": "tools/call",
         "id": 3,
-        "params": {
-            "name": "list-containers",
-            "arguments": {
-                "all": True
-            }
-        }
+        "params": {"name": "list-containers", "arguments": {"all": True}},
     }
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", call_payload))
+    assert result["status"] == 200
+    body = result["json"]
+    if "error" in body:
+        pytest.skip(f"tools/call returned error: {body['error']['message']}")
+    assert "result" in body
 
-    return test_endpoint("POST", "/mcp/", data)
 
 def test_invalid_method():
-    """
-    Send a JSON-RPC request using an unsupported method to observe the MCP error response.
-    
-    Returns:
-        dict: The HTTP response data as returned by test_endpoint — typically includes status code and either parsed JSON (result or error) or raw response text or an error description.
-    """
-    print("\n🔧 Testing Invalid Method")
+    payload = {"jsonrpc": "2.0", "method": "invalid_method", "id": 4}
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", payload))
+    assert result["status"] == 200
+    error = result["json"]["error"]
+    assert error["code"] == -32601
 
-    data = {
-        "jsonrpc": "2.0",
-        "method": "invalid_method",
-        "id": 4
-    }
-
-    return test_endpoint("POST", "/mcp/", data)
 
 def test_malformed_json():
-    """
-    Send a POST with deliberately malformed JSON to the /mcp/ endpoint to observe server behavior.
-    
-    Performs a POST to BASE_URL/mcp/ with an invalid JSON payload and returns the raw HTTP outcome.
-    
-    Returns:
-        dict: On success, {'status': <int HTTP status code>, 'response': <str raw response body>}.
-              On failure/exception, {'error': <str error message>}.
-    """
-    print("\n🔧 Testing Malformed JSON")
+    result = _call_endpoint(
+        "POST",
+        "/mcp/",
+        headers=HEADERS,
+        raw_body='{"jsonrpc": "2.0", "method": "tools/list", "id": 5',  # Missing closing brace
+    )
+    result = _require_running_server(result)
+    assert result["status"] >= 400
+    assert "raw" in result or "json" in result
 
-    url = f"{BASE_URL}/mcp/"
-
-    try:
-        response = requests.post(
-            url,
-            headers=HEADERS,
-            data='{"jsonrpc": "2.0", "method": "tools/list", "id": 5',  # Missing closing brace
-            timeout=10
-        )
-
-        print(f"\n{'='*60}")
-        print("TEST: POST /mcp (malformed JSON)")
-        print(f"STATUS: {response.status_code}")
-        print(f"RESPONSE: {response.text}")
-
-        return {"status": response.status_code, "response": response.text}
-
-    except Exception as e:
-        print(f"ERROR: {e}")
-        return {"error": str(e)}
 
 def test_health_endpoint():
-    """Test health endpoint"""
-    print("\n🔧 Testing Health Endpoint")
-    return test_endpoint("GET", "/mcp/healthz")
+    result = _require_running_server(_call_endpoint("GET", "/mcp/healthz"))
+    if result["status"] >= 500:
+        pytest.skip(f"Health endpoint returned {result['status']}")
+    assert result["status"] == 200
+    status_value = result["json"]["status"]
+    assert status_value in {"healthy", "degraded", "unhealthy"}
+
 
 def test_unauthorized_access():
-    """
-    Send a POST request to /mcp/ without an Authorization header to observe the server's response to an unauthorized request.
-    
-    Returns:
-        dict: On success, {"status": <int HTTP status code>, "response": "<raw response text>"}. On exception, {"error": "<exception message>"}.
-    """
-    print("\n🔧 Testing Unauthorized Access")
+    payload = {"jsonrpc": "2.0", "method": "tools/list", "id": 6}
+    # Drop Authorization header to simulate unauthorized request
+    result = _call_endpoint(
+        "POST",
+        "/mcp/",
+        payload,
+        headers={"Content-Type": "application/json"},
+    )
+    result = _require_running_server(result)
+    assert result["status"] in {401, 403}
 
-    url = f"{BASE_URL}/mcp/"
-    data = {
-        "jsonrpc": "2.0",
-        "method": "tools/list",
-        "id": 6
-    }
-
-    try:
-        # Send request without authorization header
-        response = requests.post(url, json=data, timeout=10)
-
-        print(f"\n{'='*60}")
-        print("TEST: POST /mcp (unauthorized)")
-        print(f"STATUS: {response.status_code}")
-        print(f"RESPONSE: {response.text}")
-
-        return {"status": response.status_code, "response": response.text}
-
-    except Exception as e:
-        print(f"ERROR: {e}")
-        return {"error": str(e)}
 
 def test_meta_tool_discover():
-    """
-    Invoke the "discover-tools" meta-tool after seeding session tools.
-    
-    This function first calls "tools/list" with params {"task_type": "meta-ops"} to seed the session tools, then calls "tools/call" with name "discover-tools" and returns the response.
-    
-    Returns:
-        dict: Response from the meta-tool call — the parsed JSON response when available, or a dictionary containing raw response text or error details.
-    """
-    print("\n🔧 Testing Meta-Tool: discover-tools")
-
-    # First call tools/list with meta-ops to seed session tools
-    print("First calling tools/list with meta-ops to seed session tools...")
-    list_data = {
+    # Seed meta tools
+    list_payload = {
         "jsonrpc": "2.0",
         "method": "tools/list",
         "params": {"task_type": "meta-ops"},
-        "id": 9
+        "id": 9,
     }
-    test_endpoint("POST", "/mcp/", list_data)
+    _require_running_server(_call_endpoint("POST", "/mcp/", list_payload))
 
-    # Then call the meta-tool
-    data = {
+    call_payload = {
         "jsonrpc": "2.0",
         "method": "tools/call",
-        "params": {
-            "name": "discover-tools",
-            "arguments": {}
-        },
-        "id": 10
+        "params": {"name": "discover-tools", "arguments": {}},
+        "id": 10,
     }
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", call_payload))
+    assert result["status"] == 200
+    assert "result" in result["json"]
 
-    return test_endpoint("POST", "/mcp/", data)
 
 def test_meta_tool_list_task_types():
-    """
-    Invoke the "list-task-types" meta-tool after seeding the session tools.
-    
-    This function first requests tools/list with task_type "meta-ops" to ensure meta-tools are available in the session, then calls tools/call for the "list-task-types" meta-tool and returns the resulting response.
-    
-    Returns:
-        dict: The HTTP endpoint response as a dictionary; typically contains a parsed JSON-RPC response (e.g., a `result` or `error` key) or an error description returned by the helper.
-    """
-    print("\n🔧 Testing Meta-Tool: list-task-types")
-
-    # First call tools/list with meta-ops to seed session tools
-    print("First calling tools/list with meta-ops to seed session tools...")
-    list_data = {
+    list_payload = {
         "jsonrpc": "2.0",
         "method": "tools/list",
         "params": {"task_type": "meta-ops"},
-        "id": 9
+        "id": 9,
     }
-    test_endpoint("POST", "/mcp/", list_data)
+    _require_running_server(_call_endpoint("POST", "/mcp/", list_payload))
 
-    # Then call the meta-tool
-    data = {
+    call_payload = {
         "jsonrpc": "2.0",
         "method": "tools/call",
-        "params": {
-            "name": "list-task-types",
-            "arguments": {}
-        },
-        "id": 11
+        "params": {"name": "list-task-types", "arguments": {}},
+        "id": 11,
     }
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", call_payload))
+    assert result["status"] == 200
+    assert "result" in result["json"]
 
-    return test_endpoint("POST", "/mcp/", data)
 
 def test_meta_tool_intent_help():
-    """
-    Run the "intent-query-help" meta-tool flow against the MCP endpoint.
-    
-    Seeds the session by calling `tools/list` with `task_type` set to "meta-ops", then invokes the `tools/call` method for the "intent-query-help" meta-tool.
-    
-    Returns:
-        dict: The response from the final MCP request — typically the parsed JSON response or an error dictionary as returned by `test_endpoint`.
-    """
-    print("\n🔧 Testing Meta-Tool: intent-query-help")
-
-    # First call tools/list with meta-ops to seed session tools
-    print("First calling tools/list with meta-ops to seed session tools...")
-    list_data = {
+    list_payload = {
         "jsonrpc": "2.0",
         "method": "tools/list",
         "params": {"task_type": "meta-ops"},
-        "id": 9
+        "id": 9,
     }
-    test_endpoint("POST", "/mcp/", list_data)
+    _require_running_server(_call_endpoint("POST", "/mcp/", list_payload))
 
-    # Then call the meta-tool
-    data = {
+    call_payload = {
         "jsonrpc": "2.0",
         "method": "tools/call",
-        "params": {
-            "name": "intent-query-help",
-            "arguments": {}
-        },
-        "id": 12
+        "params": {"name": "intent-query-help", "arguments": {}},
+        "id": 12,
     }
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", call_payload))
+    assert result["status"] == 200
+    assert "result" in result["json"]
 
-    return test_endpoint("POST", "/mcp/", data)
 
 def test_tools_list_meta_ops():
-    """
-    Request the tools list filtered by the "meta-ops" task type.
-    
-    Returns:
-        dict: The response dictionary from the endpoint call, containing either parsed JSON result or error information.
-    """
-    print("\n🔧 Testing Tools List with meta-ops Task Type")
-
-    data = {
+    payload = {
         "jsonrpc": "2.0",
         "method": "tools/list",
-        "params": {
-            "task_type": "meta-ops"
-        },
-        "id": 13
+        "params": {"task_type": "meta-ops"},
+        "id": 13,
     }
+    result = _require_running_server(_call_endpoint("POST", "/mcp/", payload))
+    meta_tools = result["json"]["result"]["tools"]
+    assert meta_tools, "Expected meta-ops tool list to be non-empty"
 
-    return test_endpoint("POST", "/mcp/", data)
 
-def main():
+def main() -> None:
     """
-    Run the full suite of MCP endpoint tests and print a summary report.
-    
-    Executes all defined test helpers against the configured BASE_URL using the configured token, prints an introductory header, runs each test in sequence collecting results, and prints a concise pass/fail/unknown summary and basic troubleshooting guidance for connection errors.
+    Run the full suite of MCP endpoint requests and print a summary report.
+
+    This function is intended for manual execution and does not rely on pytest.
     """
     print("🚀 Starting MCP Endpoint Tests")
     print(f"📡 Target URL: {BASE_URL}")
@@ -457,50 +304,116 @@ def main():
     print("\n⚠️  Note: This test script requires the server to be running.")
     print("   If connection fails, start the server first.\n")
 
-    # Wait a moment for user to read the intro
+    # Wait a moment for the user to read the intro
     time.sleep(2)
 
-    # Run tests
-    results = {}
-
-    results['health'] = test_health_endpoint()
-    results['initialize'] = test_mcp_initialize()
-    results['tools_list'] = test_tools_list()
-    results['prompts_list'] = test_prompts_list()
-    results['prompts_get'] = test_prompts_get()
-    results['prompts_get_invalid'] = test_prompts_get_invalid()
-    results['tools_call'] = test_tools_call()
-    results['meta_tool_discover'] = test_meta_tool_discover()
-    results['meta_tool_list_task_types'] = test_meta_tool_list_task_types()
-    results['meta_tool_intent_help'] = test_meta_tool_intent_help()
-    results['tools_list_meta_ops'] = test_tools_list_meta_ops()
-    results['invalid_method'] = test_invalid_method()
-    results['malformed_json'] = test_malformed_json()
-    results['unauthorized'] = test_unauthorized_access()
+    # Run probes
+    probes = {
+        "health": _call_endpoint("GET", "/mcp/healthz"),
+        "initialize": _call_endpoint(
+            "POST",
+            "/mcp/",
+            {
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "id": 1,
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {"tools": {}},
+                    "clientInfo": {"name": "test-client", "version": "1.0.0"},
+                },
+            },
+        ),
+        "tools_list": _call_endpoint("POST", "/mcp/", {"jsonrpc": "2.0", "method": "tools/list", "id": 2}),
+        "prompts_list": _call_endpoint(
+            "POST", "/mcp/", {"jsonrpc": "2.0", "method": "prompts/list", "params": {}, "id": 7}
+        ),
+        "prompts_get": _call_endpoint(
+            "POST",
+            "/mcp/",
+            {"jsonrpc": "2.0", "method": "prompts/get", "params": {"name": "discover-tools"}, "id": 8},
+        ),
+        "prompts_get_invalid": _call_endpoint(
+            "POST",
+            "/mcp/",
+            {"jsonrpc": "2.0", "method": "prompts/get", "params": {"name": "invalid-prompt"}, "id": 9},
+        ),
+        "tools_call": _call_endpoint(
+            "POST",
+            "/mcp/",
+            {
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "id": 3,
+                "params": {"name": "list-containers", "arguments": {"all": True}},
+            },
+        ),
+        "meta_tool_discover": _call_endpoint(
+            "POST",
+            "/mcp/",
+            {"jsonrpc": "2.0", "method": "tools/call", "params": {"name": "discover-tools", "arguments": {}}, "id": 10},
+        ),
+        "meta_tool_list_task_types": _call_endpoint(
+            "POST",
+            "/mcp/",
+            {
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "params": {"name": "list-task-types", "arguments": {}},
+                "id": 11,
+            },
+        ),
+        "meta_tool_intent_help": _call_endpoint(
+            "POST",
+            "/mcp/",
+            {
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "params": {"name": "intent-query-help", "arguments": {}},
+                "id": 12,
+            },
+        ),
+        "tools_list_meta_ops": _call_endpoint(
+            "POST",
+            "/mcp/",
+            {"jsonrpc": "2.0", "method": "tools/list", "params": {"task_type": "meta-ops"}, "id": 13},
+        ),
+        "invalid_method": _call_endpoint("POST", "/mcp/", {"jsonrpc": "2.0", "method": "invalid_method", "id": 4}),
+        "malformed_json": _call_endpoint(
+            "POST",
+            "/mcp/",
+            headers=HEADERS,
+            raw_body='{"jsonrpc": "2.0", "method": "tools/list", "id": 5',
+        ),
+        "unauthorized": _call_endpoint(
+            "POST",
+            "/mcp/",
+            {"jsonrpc": "2.0", "method": "tools/list", "id": 6},
+            headers={"Content-Type": "application/json"},
+        ),
+    }
 
     # Summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("📊 TEST SUMMARY")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
-    for test_name, result in results.items():
-        if 'error' in result:
-            status = "❌ FAILED"
-        elif isinstance(result.get('status'), int) and result.get('status') == 200:
-            status = "✅ PASSED"
-        elif isinstance(result.get('status'), int) and result.get('status') >= 400:
+    for name, response in probes.items():
+        if "error" in response:
+            status = "❌ CONNECTION FAILED"
+        elif response.get("status", 0) >= 400:
             status = "⚠️  ERROR RESPONSE"
         else:
-            status = "❓ UNKNOWN"
+            status = "✅ OK"
+        print(f"{name:25} {status}")
 
-        print(f"{test_name:20} {status}")
-
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("🏁 Testing Complete!")
     print("\nIf tests failed with connection errors:")
     print("1. Make sure the Docker MCP server is running")
     print("2. Check that the server is accessible at http://localhost:8000")
     print("3. Verify the MCP_ACCESS_TOKEN environment variable is set correctly")
+
 
 if __name__ == "__main__":
     main()

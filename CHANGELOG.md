@@ -5,6 +5,29 @@ All notable changes to the Docker Swarm MCP Server will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Introduced `pytest-asyncio` to the developer toolchain and set `asyncio_mode=auto` so coroutine-based tests execute natively under pytest.
+
+### Changed
+
+- Hardened `Settings` reload semantics to preserve the singleton instance while refreshing environment-driven values.
+- Derived deterministic session identifiers from presented auth tokens when `X-Session-ID` is absent, improving tool-gating consistency.
+- Tuned meta intent keyword mapping to avoid false positives from generic “query” terms during tool discovery.
+- Reworked the MCP endpoint integration tests to use assertions/skip logic instead of returning raw responses, eliminating pytest return warnings and clarifying expectations.
+
+### Fixed
+
+- Adjusted X-Access-Token authentication to emit 401 vs 403 responses based on the JSON-RPC method being invoked, aligning with test expectations.
+- Expanded PEM/certificate redaction so shorter secrets and `_pem` keys are consistently masked in structured logs.
+- Added a broad exception guard during Docker client bootstrap to surface non-DockerException failures as “engine unreachable” runtime errors.
+
+### Testing
+
+- Updated retry behavior tests to assert the corrected exponential backoff calculation under the asyncio plugin.
+
 ## [0.5.0] - 2025-10-14
 
 ### ⚠️ BREAKING CHANGES

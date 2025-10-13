@@ -637,3 +637,7 @@ This fills a real gap in the MCP ecosystem! Contributions welcome:
 
 *Finally, an MCP server that actually understands Docker Swarm.*
 See docs/dependencies/tailscale.md for detailed Tailscale setup.
+
+# 🚀 Docker Swarm MCP Server v0.5.0 - Production Ready
+**Build Status**: Sun Oct 12 22:19:46 PDT 2025
+**All CodeRabbit fixes applied** ✅

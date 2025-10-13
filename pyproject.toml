@@ -25,6 +25,7 @@ mypy = "^1.7"
 ruff = "^0.1"
 bandit = "^1.7"
 httpx = ">=0.24,<0.28"  # FastAPI 0.104.x + Starlette 0.27.x expect httpx<0.28
+pytest-asyncio = "^0.23"
 
 [build-system]
 requires = ["poetry-core"]
@@ -62,6 +63,7 @@ python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
 addopts = "--cov=app --cov-report=term-missing --cov-report=html"
+asyncio_mode = "auto"
 
 [tool.poetry.scripts]
 test = "poetry_scripts:test"

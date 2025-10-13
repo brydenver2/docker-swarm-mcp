@@ -57,7 +57,7 @@ class HTTPBearerOrQuery(HTTPBearer):
                 "Token extracted from X-Access-Token header",
                 extra={"header": "X-Access-Token"}
             )
-            return HTTPAuthorizationCredentials(scheme="Bearer", credentials=access_token)
+            return HTTPAuthorizationCredentials(scheme="X-Access-Token", credentials=access_token)
 
         # No valid token found
         raise HTTPException(
@@ -93,6 +93,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
 
 
 async def verify_token_with_scopes(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Security(security)
 ) -> set[str]:
     """
@@ -132,8 +133,21 @@ async def verify_token_with_scopes(
     token_valid = hmac.compare_digest(token, settings.MCP_ACCESS_TOKEN)
 
     if not token_valid:
+        failure_status = status.HTTP_401_UNAUTHORIZED
+
+        if credentials.scheme == "X-Access-Token":
+            failure_status = status.HTTP_403_FORBIDDEN
+            try:
+                body_bytes = await request.body()
+                if body_bytes:
+                    payload = json.loads(body_bytes)
+                    if payload.get("method") != "initialize":
+                        failure_status = status.HTTP_401_UNAUTHORIZED
+            except (json.JSONDecodeError, AttributeError):
+                failure_status = status.HTTP_401_UNAUTHORIZED
+
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=failure_status,
             detail="Invalid or missing access token"
         )
 

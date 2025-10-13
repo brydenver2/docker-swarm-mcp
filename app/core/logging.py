@@ -138,14 +138,24 @@ def redact_secrets(data: dict[str, Any]) -> dict[str, Any]:
                 redact_secrets(item) if isinstance(item, dict) else item
                 for item in value
             ]
-        # Redact long strings that might contain secrets
-        elif isinstance(value, str) and len(value) > 100:
-            if "BEGIN" in value or "-----" in value or "yaml" in key.lower():
+        elif isinstance(value, str):
+            contains_pem_marker = value.startswith("-----BEGIN ") or ("-----" in value and "BEGIN" in value)
+            if contains_pem_marker:
                 redacted[key] = f"{value[:50]}...***REDACTED***"
+            # Redact long strings that might contain secrets
+            elif len(value) > 100:
+                if "BEGIN" in value or "-----" in value or "yaml" in key.lower():
+                    redacted[key] = f"{value[:50]}...***REDACTED***"
+                else:
+                    redacted[key] = value
             else:
                 redacted[key] = value
         else:
             redacted[key] = value
+
+        # Ensure shorter YAML-encoded secrets (by key hint) are redacted consistently
+        if isinstance(value, str) and key.lower().endswith("_pem") and "***REDACTED***" not in redacted[key]:
+            redacted[key] = f"{value[:50]}...***REDACTED***"
 
     return redacted
 

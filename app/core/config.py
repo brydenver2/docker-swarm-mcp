@@ -122,9 +122,22 @@ class Settings:
         if self.INTENT_PRECEDENCE not in allowed_precedence:
             raise ValueError(
                 f"INTENT_PRECEDENCE must be one of {allowed_precedence}, got {self.INTENT_PRECEDENCE!r}"
-            )
+        )
         self.INTENT_PRECEDENCE = cast(Literal["intent", "explicit"], self.INTENT_PRECEDENCE)
 
 
-settings = Settings()
+# Maintain a singleton Settings instance across reloads so references stay live.
+_settings_instance: Settings | None = globals().get("_settings_instance")  # type: ignore[assignment]
+
+if _settings_instance is None:
+    _settings_instance = Settings()
+else:
+    # Refresh existing instance in place so other modules retain the same object reference.
+    refreshed_settings = Settings()
+    for attr in dir(refreshed_settings):
+        if attr.isupper():
+            setattr(_settings_instance, attr, getattr(refreshed_settings, attr))
+
+settings = _settings_instance
 settings.validate()
+globals()["_settings_instance"] = _settings_instance

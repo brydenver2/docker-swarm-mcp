@@ -6,6 +6,7 @@ schema validation, and enhanced observability.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import uuid
@@ -920,7 +921,23 @@ async def mcp_endpoint(
         JSONResponse: HTTP 200 JSON-RPC 2.0 response containing either a `result` or an `error` field, or an empty HTTP 200 response for notifications.
     """
     request_id = str(uuid.uuid4())
-    session_id = request.headers.get("X-Session-ID", str(uuid.uuid4()))
+
+    session_id = request.headers.get("X-Session-ID")
+    if not session_id:
+        # Derive a deterministic session id from the presented auth token when available.
+        token_source = None
+        auth_header = request.headers.get("Authorization")
+        if auth_header:
+            parts = auth_header.split()
+            token_source = parts[1] if len(parts) == 2 else auth_header
+        if not token_source:
+            token_source = request.headers.get("X-Access-Token")
+
+        if token_source:
+            digest = hashlib.sha256(token_source.encode("utf-8")).hexdigest()
+            session_id = f"token-{digest[:16]}"
+        else:
+            session_id = str(uuid.uuid4())
 
     # Handle notification requests (no id field)
     is_notification = jsonrpc_request.id is None

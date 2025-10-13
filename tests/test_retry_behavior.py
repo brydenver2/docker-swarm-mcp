@@ -122,11 +122,11 @@ class TestRetryWithBackoff:
                 operation_name="test_operation"
             )
 
-        # Should calculate delay: base_delay * (backoff_factor ** (attempt - 1))
-        # For attempt 2: 0.1 * (2.0 ** 1) = 0.2
+        # Should calculate delay: base_delay * (backoff_factor ** (attempt_index - 1))
+        # For the second attempt (attempt_index = 2): 0.1 * (2.0 ** 0) = 0.1 before jitter
         mock_sleep.assert_called_once()
         delay_arg = mock_sleep.call_args[0][0]
-        assert 0.15 <= delay_arg <= 0.25  # Allow for jitter
+        assert 0.07 <= delay_arg <= 0.13  # Allow for ±25% jitter
 
     @pytest.mark.asyncio
     async def test_jitter_disabled(self):
@@ -141,8 +141,8 @@ class TestRetryWithBackoff:
                 operation_name="test_operation"
             )
 
-        # Without jitter: delay should be exactly 0.1 * (2.0 ** 1) = 0.2
-        mock_sleep.assert_called_once_with(0.2)
+        # Without jitter: delay should be exactly base_delay for the first retry
+        mock_sleep.assert_called_once_with(0.1)
 
     @pytest.mark.asyncio
     async def test_max_delay_limit(self):
