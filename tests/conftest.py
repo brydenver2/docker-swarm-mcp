@@ -18,17 +18,32 @@ class MockDockerClient:
     """Lightweight mock Docker client for deterministic testing"""
 
     def __init__(self):
+        """
+        Initialize the mock client with boolean flags that track whether key Docker operations were invoked.
+        
+        Each of ping_called, list_containers_called, and create_container_called is initialized to False and should be set to True by the corresponding method when that operation is performed.
+        """
         self.ping_called = False
         self.list_containers_called = False
         self.create_container_called = False
 
     def ping(self):
-        """Mock ping that always succeeds"""
+        """
+        Record that the mock client was pinged.
+        
+        Returns:
+            True indicating the mock client is reachable.
+        """
         self.ping_called = True
         return True
 
     def list_containers(self, all=False, filters=None):
-        """Mock list_containers returning deterministic data"""
+        """
+        Return a deterministic list of mock container descriptors for testing.
+        
+        Returns:
+            list[dict]: Two container dictionaries with keys "id", "name", "status", "image", and "created".
+        """
         self.list_containers_called = True
         return [
             {
@@ -48,7 +63,23 @@ class MockDockerClient:
         ]
 
     def create_container(self, config):
-        """Mock create_container returning deterministic response"""
+        """
+        Create a deterministic mock container record from the provided config and mark the create call.
+        
+        Parameters:
+            config (dict): Container configuration; may include "name" and "image" keys used to populate the returned record.
+        
+        Returns:
+            dict: A container dictionary with keys:
+                - id: deterministic container id
+                - name: container name (from config "name" or "unnamed")
+                - status: "created"
+                - image: image name (from config "image" or "scratch")
+                - created: ISO-8601 timestamp of creation
+        
+        Side effects:
+            Sets self.create_container_called = True.
+        """
         self.create_container_called = True
         return {
             "id": "new-container-789",
@@ -59,23 +90,70 @@ class MockDockerClient:
         }
 
     def start_container(self, container_id):
-        """Mock start_container"""
+        """
+        Start a container in the mock Docker client.
+        
+        Parameters:
+            container_id (str): Identifier of the container to start.
+        
+        Returns:
+            dict: An empty dictionary representing a successful no-op start operation.
+        """
         return {}
 
     def stop_container(self, container_id, timeout=10):
-        """Mock stop_container"""
+        """
+        Stop a container in the mock Docker client.
+        
+        Parameters:
+            container_id (str): Identifier of the container to stop.
+            timeout (int): Seconds to wait for graceful shutdown before forcing stop (default 10).
+        
+        Returns:
+            dict: Empty dictionary representing the mock operation result.
+        """
         return {}
 
     def remove_container(self, container_id, force=False):
-        """Mock remove_container"""
+        """
+        Remove a container from the mock Docker client.
+        
+        Parameters:
+            container_id (str): Identifier of the container to remove.
+            force (bool): If True, request a forced removal (ignored by the mock).
+        
+        Returns:
+            dict: Empty dictionary representing a successful no-op removal.
+        """
         return {}
 
     def get_logs(self, container_id, tail=100, since=None, follow=False):
-        """Mock get_logs returning deterministic logs"""
+        """
+        Return a deterministic multiline mock log string for a container.
+        
+        Parameters:
+            container_id (str): Identifier of the container whose logs are being requested.
+            tail (int): Number of most recent log lines to include.
+            since (Optional[Union[int, str]]): Start time for logs (timestamp or string).
+            follow (bool): If true, indicates logs should be streamed.
+        
+        Returns:
+            str: Multiline string of mock log lines separated by newline characters.
+        """
         return "Mock log line 1\nMock log line 2\nMock log line 3"
 
     def list_stacks(self):
-        """Mock list_stacks"""
+        """
+        Return a deterministic list of mock stack summaries for testing.
+        
+        Each stack entry is a dictionary with the stack's project name, the service names, and the total service count.
+        
+        Returns:
+            list[dict]: List of stack summaries. Each dictionary contains:
+                - project_name (str): Name of the stack/project.
+                - services (list[str]): Names of services in the stack.
+                - service_count (int): Number of services in the stack.
+        """
         return [
             {
                 "project_name": "test-stack",
@@ -85,7 +163,21 @@ class MockDockerClient:
         ]
 
     def deploy_compose(self, project_name, compose_yaml, force_recreate=False):
-        """Mock deploy_compose"""
+        """
+        Simulate deploying a Docker Compose project and return a deterministic deployment summary.
+        
+        Parameters:
+            project_name (str): Name of the compose project.
+            compose_yaml (str): Docker Compose YAML content used for the deployment.
+            force_recreate (bool): If True, indicates services should be force-recreated (no effect in mock).
+        
+        Returns:
+            dict: Deployment summary containing:
+                - project_name (str): The provided project name.
+                - services (list[str]): List of service names in the deployment.
+                - mode (str): Deployment mode (e.g., "replicated").
+                - created (str): ISO-8601 timestamp of the mock creation time.
+        """
         return {
             "project_name": project_name,
             "services": ["web", "db"],
@@ -94,11 +186,30 @@ class MockDockerClient:
         }
 
     def remove_compose(self, project_name):
-        """Mock remove_compose"""
+        """
+        Remove a compose project from the mock Docker client (no-op for tests).
+        
+        Parameters:
+            project_name (str): Name of the compose project to remove.
+        
+        Returns:
+            dict: An empty dictionary.
+        """
         return {}
 
     def list_services(self):
-        """Mock list_services"""
+        """
+        Return a deterministic list of mock service dictionaries for tests.
+        
+        Returns:
+            list[dict]: A list containing a single mock service entry with fixed fields:
+                - id: "service-123"
+                - name: "test-service"
+                - replicas: 3
+                - image: "nginx:latest"
+                - created: "2025-01-01T04:00:00Z"
+                - mode: "replicated"
+        """
         return [
             {
                 "id": "service-123",
@@ -111,7 +222,16 @@ class MockDockerClient:
         ]
 
     def scale_service(self, service_name, replicas):
-        """Mock scale_service"""
+        """
+        Provide a deterministic mock representation of a service scaled to the requested replica count.
+        
+        Parameters:
+        	service_name (str): Name of the service to scale.
+        	replicas (int): Desired number of replicas for the service.
+        
+        Returns:
+        	dict: Mocked service dictionary with keys `id`, `name`, `replicas`, `image`, `created`, and `mode`.
+        """
         return {
             "id": "service-123",
             "name": service_name,
@@ -122,11 +242,26 @@ class MockDockerClient:
         }
 
     def remove_service(self, service_name):
-        """Mock remove_service"""
+        """
+        Remove a service in the mock Docker client and record that the operation was invoked.
+        
+        Parameters:
+            service_name (str): Name or identifier of the service to remove.
+        
+        Returns:
+            dict: An empty dictionary representing a no-op removal result.
+        """
         return {}
 
     def list_networks(self):
-        """Mock list_networks"""
+        """
+        Return a deterministic list of mock Docker network metadata for tests.
+        
+        Returns:
+            list: A list of network dictionaries. Each dictionary contains the keys
+                `id` (str), `name` (str), `driver` (str), `scope` (str), and
+                `created` (ISO 8601 timestamp string).
+        """
         return [
             {
                 "id": "network-123",
@@ -138,7 +273,22 @@ class MockDockerClient:
         ]
 
     def create_network(self, config):
-        """Mock create_network"""
+        """
+        Create a deterministic mock network object using values from the provided config.
+        
+        Parameters:
+            config (dict): Network creation options. Recognized keys:
+                - "name": desired network name (defaults to "unnamed").
+                - "driver": network driver (defaults to "bridge").
+        
+        Returns:
+            dict: A network representation with keys:
+                - "id": fixed identifier for the created network.
+                - "name": network name from `config` or the default.
+                - "driver": network driver from `config` or the default.
+                - "scope": network scope ("local").
+                - "created": ISO-8601 timestamp string representing creation time.
+        """
         return {
             "id": "new-network-456",
             "name": config.get("name", "unnamed"),
@@ -148,11 +298,30 @@ class MockDockerClient:
         }
 
     def remove_network(self, network_id):
-        """Mock remove_network"""
+        """
+        Remove a network from the mock Docker client state.
+        
+        Parameters:
+        	network_id (str): Identifier of the network to remove.
+        
+        Returns:
+        	result (dict): An empty dictionary representing a no-op removal result.
+        """
         return {}
 
     def list_volumes(self):
-        """Mock list_volumes"""
+        """
+        Return a deterministic list of mock Docker volumes.
+        
+        Each item is a dict with the following keys:
+        - "name": volume name.
+        - "driver": volume driver.
+        - "mountpoint": filesystem path where the volume is mounted.
+        - "created": ISO 8601 UTC creation timestamp.
+        
+        Returns:
+            list[dict]: A list containing one mock volume dictionary.
+        """
         return [
             {
                 "name": "test-volume",
@@ -163,7 +332,21 @@ class MockDockerClient:
         ]
 
     def create_volume(self, config):
-        """Mock create_volume"""
+        """
+        Create a deterministic mock volume representation using the provided configuration.
+        
+        Parameters:
+            config (dict): Volume configuration; recognized keys:
+                - "name": volume name (defaults to "unnamed")
+                - "driver": volume driver (defaults to "local")
+        
+        Returns:
+            dict: Volume record with keys:
+                - "name": the volume name
+                - "driver": the volume driver
+                - "mountpoint": constructed mount path based on the name
+                - "created": ISO 8601 creation timestamp
+        """
         return {
             "name": config.get("name", "unnamed"),
             "driver": config.get("driver", "local"),
@@ -172,7 +355,15 @@ class MockDockerClient:
         }
 
     def remove_volume(self, volume_name):
-        """Mock remove_volume"""
+        """
+        Simulate removing a Docker volume from the mock client.
+        
+        Parameters:
+            volume_name (str): Name of the volume to remove.
+        
+        Returns:
+            dict: An empty dictionary.
+        """
         return {}
 
 
@@ -184,7 +375,14 @@ def mock_docker_client():
 
 @pytest.fixture
 def test_client_with_mock(mock_docker_client, monkeypatch):
-    """Fixture providing TestClient with mocked Docker client"""
+    """
+    Provide a TestClient for the FastAPI app wired with a mocked Docker client and initialized MCP components.
+    
+    This fixture patches app.docker_client.get_docker_client to return the provided mock, injects the mock into app.state.docker_client, and initializes tool_registry, tool_gate_controller, intent_classifier, and mcp_server in app.state using any available filter-config.json values (with safe fallbacks).
+    
+    Returns:
+        TestClient: A TestClient wrapping the FastAPI app configured to use the mocked Docker client and initialized MCP components.
+    """
     # Stub get_docker_client before constructing TestClient
     monkeypatch.setattr('app.docker_client.get_docker_client', lambda: mock_docker_client)
 
@@ -252,7 +450,16 @@ def test_client_with_mock(mock_docker_client, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def setup_test_env(monkeypatch):
-    """Setup test environment variables"""
+    """
+    Configure deterministic environment variables used by tests.
+    
+    This fixture sets the following environment variables to stable, test-friendly values:
+    - MCP_ACCESS_TOKEN="test-token-123"
+    - LOG_LEVEL="DEBUG"
+    - MCP_TIMEOUT_READ_OPS="5"
+    - MCP_TIMEOUT_WRITE_OPS="5"
+    - MCP_TIMEOUT_DELETE_OPS="5"
+    """
     monkeypatch.setenv("MCP_ACCESS_TOKEN", "test-token-123")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("MCP_TIMEOUT_READ_OPS", "5")  # Faster tests

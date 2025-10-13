@@ -7,7 +7,22 @@ from app.core.config import settings
 
 
 async def discover_tools(docker_client: Any, params: dict[str, Any], config: Any = None) -> dict[str, Any]:
-    """Return guidance on tool discovery and task type filtering."""
+    """
+    Provide guidance for discovering available tools and filtering them by task type.
+    
+    Parameters:
+        config (Any): Configuration object containing `task_type_allowlists` (mapping of task types to tool lists)
+            and `max_tools` (maximum tools returned by default). Must be provided.
+    
+    Returns:
+        result (dict): Mapping with keys:
+            - "guidance": Human-readable guidance about total tools, task type categories, and filtering usage.
+            - "task_types": List of task type info objects, each with `name`, `tool_count`, and `example_tools`.
+            - "example_request": JSON string demonstrating a `{"task_type": "<name>"}` filter.
+    
+    Raises:
+        ValueError: If `config` is None.
+    """
     # Use provided config or get from ToolGateController
     if config is None:
         # This should not happen in normal operation, but provide fallback
@@ -47,7 +62,23 @@ async def discover_tools(docker_client: Any, params: dict[str, Any], config: Any
 
 
 async def list_task_types(docker_client: Any, params: dict[str, Any], config: Any = None) -> dict[str, Any]:
-    """Return complete mapping of task types to tools."""
+    """
+    Return mapping of task types to their allowed tools and a brief usage hint.
+    
+    Parameters:
+        config: Configuration object exposing `task_type_allowlists` (mapping of task type to lists of tool identifiers)
+            and `max_tools` (maximum tools allowed per request). Must be provided.
+    
+    Returns:
+        result (dict): Dictionary with the following keys:
+            - "task_types": the `task_type_allowlists` mapping.
+            - "total_tools": integer count of unique tools across all task types.
+            - "max_tools_per_request": the `max_tools` value from config.
+            - "usage_hint": a short string explaining how to filter by `task_type` and listing available task types.
+    
+    Raises:
+        ValueError: If `config` is None.
+    """
     # Use provided config or get from ToolGateController
     if config is None:
         # This should not happen in normal operation, but provide fallback
@@ -76,7 +107,19 @@ async def list_task_types(docker_client: Any, params: dict[str, Any], config: An
 
 
 async def intent_query_help(docker_client: Any, params: dict[str, Any]) -> dict[str, Any]:
-    """Return guidance on natural language query usage."""
+    """
+    Provide guidance for using natural language queries to discover tools and examples of common queries.
+    
+    The returned dictionary includes:
+    - guidance: explanatory text about using the `query` parameter and current intent-classification status.
+    - examples: a list of example queries with their detected task type and a short description.
+    - enabled: boolean indicating whether intent classification is enabled.
+    - example_request: JSON string demonstrating a `query` request (e.g., `{"query": "Show me running containers"}`).
+    - note: present only when `enabled` is false; instructs to use the explicit `task_type` parameter instead.
+    
+    Returns:
+        result (dict): Mapping described above containing guidance, examples, enabled flag, example_request, and optionally a note.
+    """
     enabled = settings.INTENT_CLASSIFICATION_ENABLED
 
     guidance = (

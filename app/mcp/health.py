@@ -8,7 +8,18 @@ router = APIRouter()
 
 @router.get("/health")
 async def health_check(request: Request) -> dict[str, str | bool | int]:
-    """Basic health check endpoint"""
+    """
+    Perform a basic health check that verifies Docker reachability and reports service status.
+    
+    Parameters:
+        request (Request): FastAPI request used to access application state (expects `request.app.state.docker_client`).
+    
+    Returns:
+        dict: A mapping with:
+            - status (str): "healthy" if Docker is reachable, "degraded" otherwise.
+            - docker_reachable (bool): Whether the Docker client responded to a ping.
+            - version (str): Application version (APP_VERSION).
+    """
     try:
         docker_client = request.app.state.docker_client
         docker_reachable = docker_client.ping()
@@ -25,13 +36,18 @@ async def health_check(request: Request) -> dict[str, str | bool | int]:
 @router.get("/healthz")
 async def detailed_health_check(request: Request) -> dict[str, str | bool | int]:
     """
-    Detailed health check endpoint that reflects MCP readiness
-
-    Returns comprehensive health status including:
-    - MCP server readiness
-    - Tool availability
-    - Authentication configuration
-    - Protocol version
+    Provide a detailed health status for the service, reflecting MCP readiness, Docker reachability, authentication setup, and available tools.
+    
+    Returns:
+        dict: Health report with keys:
+            - status (str): One of "healthy", "degraded", or "unhealthy".
+            - mcp_ready (bool): Whether the MCP server and its tool registry appear ready.
+            - docker_reachable (bool): Whether the configured Docker client responded to a ping.
+            - auth_configured (bool): Whether MCP authentication settings are configured.
+            - tool_count (int): Number of tools discovered in the MCP tool registry.
+            - protocol_version (str): MCP protocol version from configuration.
+            - version (str): Application version.
+            - endpoints (dict): Exposed MCP route metadata.
     """
     try:
         docker_client = request.app.state.docker_client

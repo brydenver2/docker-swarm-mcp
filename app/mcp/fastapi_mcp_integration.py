@@ -78,6 +78,19 @@ class DynamicToolGatingMCP:
         tool_gate_controller: ToolGateController,
         intent_classifier: Any = None
     ):
+        """
+        Initialize the MCP server with the tool registry, gate controller, and optional intent classifier.
+        
+        Builds the internal service map, initializes per-session gating state, and validates all tool request/response schemas at startup.
+        
+        Parameters:
+            tool_registry: Registry that provides available tools and their metadata.
+            tool_gate_controller: Controller used to compute which tools are allowed given a filter context.
+            intent_classifier: Optional component used to classify natural-language queries into task types (may be None).
+        
+        Raises:
+            ValueError: If schema validation finds mismatches in tool request/response schemas.
+        """
         self.tool_registry = tool_registry
         self.tool_gate_controller = tool_gate_controller
         self.intent_classifier = intent_classifier
@@ -131,7 +144,14 @@ class DynamicToolGatingMCP:
         }
 
     def _validate_schemas_at_startup(self) -> None:
-        """Validate that all tools have valid JSON schemas and proper security scopes"""
+        """
+        Validate JSON request and response schemas for all registered tools and warn if destructive tools lack required security scopes.
+        
+        Validates each tool's request_schema (if present) and response_schema using JSON Schema Draft 7. If any schema is invalid, logs the failures and raises a ValueError listing the mismatches. Detects tool names containing the substrings 'remove', 'delete', 'scale', or 'stop' and emits a warning when such destructive tools have no required_scopes configured. Logs a summary info message on successful validation.
+        
+        Raises:
+            ValueError: If one or more request or response schemas are invalid.
+        """
         all_tools = self.tool_registry.get_all_tools()
         schema_mismatches = []
         security_warnings = []
@@ -180,7 +200,20 @@ class DynamicToolGatingMCP:
         request_id: str,
         session_id: str
     ) -> dict[str, Any]:
-        """Handle MCP initialize request"""
+        """
+        Provide the server protocol version, capabilities, and server information for the MCP initialize request.
+        
+        Parameters:
+            params (dict[str, Any] | None): Optional initialize parameters from the client (ignored by this handler).
+            request_id (str): Unique identifier for the incoming JSON-RPC request.
+            session_id (str): Identifier for the client session.
+        
+        Returns:
+            dict[str, Any]: A payload containing:
+                - protocolVersion (str): MCP protocol version string.
+                - capabilities (dict): Feature flags for tools and prompts (gating, context enforcement, task-type filtering, prompt list status).
+                - serverInfo (dict): Server metadata with `name` and `version`.
+        """
         from app.core.constants import APP_VERSION
 
         return {
@@ -209,7 +242,28 @@ class DynamicToolGatingMCP:
         scopes: set[str],
         task_type_header: str | None = None
     ) -> dict[str, Any]:
-        """Handle tools/list with integrated gating and intent classification"""
+        """
+        Handle a tools/list request by applying intent classification, gating, and scope-based filtering, then return the matching tools and metadata.
+        
+        This method:
+        - Resolves an effective task type from the task_type_header or params and optionally uses an intent classifier to detect task types from a natural-language query.
+        - Enforces strict no-match behavior when intent classification yields no task types and fallback is disabled, returning an empty tool set with a warning.
+        - Builds a FilterContext and obtains available tools from the tool gate controller.
+        - Applies scope-based filtering (unless the caller has the "admin" scope) and records the filtered tool set for the session.
+        - Computes context size and returns a list of tools (with name, description, and inputSchema) plus a _metadata object describing context size, filters applied, classification details, and optional warnings.
+        
+        Parameters:
+            params (dict[str, Any] | None): Request parameters; may contain "task_type" (str) and/or "query" (str).
+            request_id (str): Correlation ID for the request, used for logging and metadata.
+            session_id (str): Session identifier used to persist session-specific filtered tools.
+            scopes (set[str]): Authorization scopes for the caller; used for scope-based tool filtering.
+            task_type_header (str | None): Optional task type provided via request header; takes precedence over params when present.
+        
+        Returns:
+            dict[str, Any]: Response payload containing:
+              - "tools": list of objects with keys "name", "description", and "inputSchema" (schema derived from the tool's request_schema).
+              - "_metadata": object with "context_size", "filters_applied", "classification_method", and when applicable "query", "detected_task_types", and "warning".
+        """
         # Support both header and param for backward compatibility
         task_type = task_type_header or (params.get("task_type") if params else None)
         query = params.get("query") if params else None
@@ -410,7 +464,23 @@ class DynamicToolGatingMCP:
         session_id: str,
         jsonrpc_id: str | int | None = None
     ) -> JSONRPCResponse:
-        """Handle prompts/get request"""
+        """
+        Retrieve a predefined prompt by name and return it formatted as a JSON-RPC response.
+        
+        Supported prompt names:
+        - "discover-tools": Returns a brief guide describing available tools and task types, with examples for tools/list.
+        - "list-task-types": Returns a detailed listing of task types and example tools (derived from configuration if available, otherwise from the tool registry).
+        - "intent-query-help": Returns guidance and examples for using natural language queries with tools/list.
+        
+        Parameters:
+            params (dict[str, Any] | None): Must include a "name" key with the prompt name to retrieve.
+            request_id (str): Correlation ID for logging.
+            session_id (str): Session identifier for logging and session-scoped behavior.
+            jsonrpc_id (str | int | None): The JSON-RPC id to include in the response.
+        
+        Returns:
+            JSONRPCResponse: On success, contains a `result` with `description` and `messages` (user-facing text content). If `params` is missing or the prompt name is unknown, returns an `error` with `INVALID_PARAMS`.
+        """
         if not params or "name" not in params:
             return JSONRPCResponse(
                 id=jsonrpc_id,
@@ -595,7 +665,22 @@ class DynamicToolGatingMCP:
         docker_client: Any,
         jsonrpc_id: str | int | None = None
     ) -> JSONRPCResponse:
-        """Handle tools/call with gating enforcement and schema validation"""
+        """
+        Handle a tools/call request: enforce session gating and scopes, validate input/output schemas, execute the tool, and return a JSON-RPC response.
+        
+        Validates presence of the tool name, ensures the tool is allowed for the session, checks caller scopes against the tool's required scopes or task types, validates input parameters against the tool's request schema, executes the tool service with an operation-based timeout, validates the tool output against the response schema (optionally enforcing it), and returns a JSONRPCResponse containing either an error or the tool result serialized as a text content payload.
+        
+        Parameters:
+            params (dict | None): RPC parameters; must include "name" and may include "arguments" for the tool.
+            request_id (str): Internal request identifier used for logging and tracing.
+            session_id (str): Session identifier used to look up session-filtered tools from prior tools/list calls.
+            scopes (set[str]): Caller scopes to validate permission to invoke the tool.
+            docker_client (Any): Client used by service functions to perform Docker operations (omitted from detailed docs as a passed service).
+            jsonrpc_id (str | int | None): The JSON-RPC request id to include in the response.
+        
+        Returns:
+            JSONRPCResponse: A JSON-RPC 2.0 response containing either an `error` (with standard JSONRPCError fields) or a `result` whose `content` is a list with a single text entry containing the serialized tool output.
+        """
         if not params or "name" not in params:
             return JSONRPCResponse(
                 id=jsonrpc_id,
@@ -808,15 +893,18 @@ async def mcp_endpoint(
     x_task_type: str | None = None
 ) -> JSONResponse:
     """
-    Main MCP JSON-RPC endpoint with integrated gating and observability
-
-    Handles:
-    - initialize
-    - tools/list (with task_type parameter and gating)
-    - tools/call (with gating enforcement and schema validation)
-
-    All errors are returned as JSON-RPC error responses with HTTP 200 status
-    (except authentication errors which return 401/403).
+    Handle incoming MCP JSON-RPC requests and dispatch them to the appropriate MCP server handlers.
+    
+    Supports the JSON-RPC methods: "initialize", "tools/list", "tools/call", "prompts/list", and "prompts/get". JSON-RPC notifications (requests with no `id`) are accepted and return an empty HTTP 200 response with no JSON-RPC body. Authentication and scope extraction are provided via the `scopes` dependency.
+    
+    Parameters:
+        request (Request): FastAPI request object containing app state and headers.
+        jsonrpc_request (JSONRPCRequest): Parsed JSON-RPC 2.0 request payload.
+        scopes (set[str]): Authorization scopes extracted by the dependency; used for gating and permission checks.
+        x_task_type (str | None): Optional task-type header override for backward compatibility.
+    
+    Returns:
+        JSONResponse: HTTP 200 JSON-RPC 2.0 response containing either a `result` or an `error` field, or an empty HTTP 200 response for notifications.
     """
     request_id = str(uuid.uuid4())
     session_id = request.headers.get("X-Session-ID", str(uuid.uuid4()))

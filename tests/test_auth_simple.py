@@ -50,7 +50,9 @@ def test_tools_endpoint_with_valid_x_access_token(test_client_with_mock):
 
 
 def test_tools_endpoint_with_invalid_token(test_client_with_mock):
-    """Test JSON-RPC tools/list with invalid token"""
+    """
+    Verify that a request to the JSON-RPC method `tools/list` using an invalid Bearer token is rejected with a 401 response and an appropriate error detail.
+    """
     response = test_client_with_mock.post(
         "/mcp/",
         headers={"Authorization": f"Bearer {INVALID_TOKEN}"},

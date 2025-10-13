@@ -19,13 +19,13 @@ class IntentClassifierBase(ABC):
     @abstractmethod
     def classify_intent(self, query: str) -> list[str]:
         """
-        Classify a natural language query into relevant task types.
-
-        Args:
-            query: Natural language query from the LLM
-
+        Determine one or more Docker-related task types expressed in a natural language query.
+        
+        Parameters:
+            query (str): The natural language text to classify.
+        
         Returns:
-            List of detected task types (e.g., ["container-ops", "compose-ops"])
+            list[str]: Detected task type identifiers (for example, "container-ops", "compose-ops").
         """
         pass
 
@@ -40,24 +40,20 @@ class KeywordIntentClassifier(IntentClassifierBase):
 
     def __init__(self, keyword_mappings: Optional[dict[str, list[str]]] = None):
         """
-        Initialize the classifier with keyword mappings.
-
-        Args:
-            keyword_mappings: Dict mapping task types to keyword lists.
-                            If None, uses default mappings.
+        Create a KeywordIntentClassifier using the supplied keyword mappings or defaults.
+        
+        Parameters:
+            keyword_mappings (Optional[dict[str, list[str]]]): Mapping from task type identifiers (e.g., "container-ops") to lists of keywords or phrases that indicate that task type. If None, a default mapping set is used.
         """
         self.keyword_mappings = keyword_mappings or self._get_default_mappings()
         logger.info(f"Intent classifier initialized with {len(self.keyword_mappings)} task types")
 
     def classify_intent(self, query: str) -> list[str]:
         """
-        Classify query into task types using keyword matching.
-
-        Args:
-            query: Natural language query
-
+        Determine Docker task types present in a natural-language query using the classifier's configured keyword mappings.
+        
         Returns:
-            List of detected task types
+            list[str]: Detected task type identifiers (for example, "container-ops", "compose-ops"); empty list if no keywords match.
         """
         if not query or not query.strip():
             return []
@@ -79,14 +75,14 @@ class KeywordIntentClassifier(IntentClassifierBase):
 
     def _matches_keywords(self, query: str, keywords: list[str]) -> bool:
         """
-        Check if query matches any keywords for a task type.
-
-        Args:
-            query: Lowercase query string
-            keywords: List of keywords/phrases to match
-
+        Determine whether the query matches any of the provided keywords or phrases.
+        
+        Parameters:
+            query (str): The text to search; expected to be normalized (e.g., lowercased and trimmed).
+            keywords (list[str]): Keywords or phrases to match against the query.
+        
         Returns:
-            True if any keyword matches
+            True if the query contains any keyword as a substring or contains a single-word keyword as a whole word, False otherwise.
         """
         for keyword in keywords:
             # Support both exact word matches and phrase matches
@@ -102,11 +98,21 @@ class KeywordIntentClassifier(IntentClassifierBase):
         return False
 
     def get_keyword_mappings(self) -> dict[str, list[str]]:
-        """Get current keyword mappings for observability."""
+        """
+        Return a shallow copy of the current keyword-to-keywords mappings for inspection.
+        
+        Returns:
+            dict[str, list[str]]: A shallow copy of the mapping where keys are task types and values are lists of keywords.
+        """
         return self.keyword_mappings.copy()
 
     def _get_default_mappings(self) -> dict[str, list[str]]:
-        """Get default keyword mappings for Docker task types."""
+        """
+        Return default keyword mappings used to map natural-language queries to Docker task types.
+        
+        Returns:
+            dict[str, list[str]]: Mapping from task-type keys (e.g., "container-ops") to lists of associated keyword phrases used for pattern matching.
+        """
         return {
             "container-ops": [
                 "container", "containers", "docker run", "start", "stop",
@@ -166,11 +172,14 @@ class LLMIntentClassifier(IntentClassifierBase):
 
     def __init__(self, api_key: str, model: str = "gpt-3.5-turbo"):
         """
-        Initialize LLM classifier.
-
-        Args:
-            api_key: API key for LLM service
-            model: Model to use for classification
+        Create a placeholder LLM-based intent classifier and store the provided API credentials.
+        
+        Parameters:
+            api_key (str): API key for the LLM service.
+            model (str): Identifier of the LLM model to use (default: "gpt-3.5-turbo").
+        
+        Raises:
+            NotImplementedError: Always raised because the LLM-based classifier is not yet implemented.
         """
         self.api_key = api_key
         self.model = model

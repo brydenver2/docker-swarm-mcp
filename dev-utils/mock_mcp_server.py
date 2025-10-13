@@ -84,11 +84,24 @@ class MockMCPServer:
     """Mock MCP server for testing"""
 
     def __init__(self):
+        """
+        Initialize the MockMCPServer instance with predefined mock tools and containers.
+        
+        Sets the `tools` attribute to the module's MOCK_TOOLS and the `containers` attribute to MOCK_CONTAINERS.
+        """
         self.tools = MOCK_TOOLS
         self.containers = MOCK_CONTAINERS
 
     def handle_initialize(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Handle initialize request"""
+        """
+        Responds to an MCP initialize request with the server's protocol version, capabilities, and basic metadata.
+        
+        Returns:
+            dict: A mapping with keys:
+                - "protocolVersion" (str): protocol version string.
+                - "capabilities" (dict): server capabilities; includes "tools" -> {"listChanged": bool}.
+                - "serverInfo" (dict): server metadata with "name" (str) and "version" (str).
+        """
         return {
             "protocolVersion": "2024-11-05",
             "capabilities": {
@@ -103,11 +116,32 @@ class MockMCPServer:
         }
 
     def handle_tools_list(self, params: dict[str, Any] = None) -> dict[str, Any]:
-        """Handle tools/list request"""
+        """
+        Return the available tool definitions exposed by the mock MCP server.
+        
+        Parameters:
+            params (dict[str, Any] | None): Optional request parameters (ignored by this handler).
+        
+        Returns:
+            dict[str, Any]: A dictionary with a single key `"tools"` whose value is the list of tool definition objects.
+        """
         return {"tools": self.tools}
 
     def handle_tools_call(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Handle tools/call request"""
+        """
+        Dispatch a tools/call request to the corresponding mock tool and return its response content.
+        
+        Parameters:
+            params (dict): Request parameters containing:
+                - "name" (str): The tool name to invoke ("list_containers", "create_container", "list_images", ...).
+                - "arguments" (dict, optional): Tool-specific arguments (e.g., for "create_container": "image", "name").
+        
+        Returns:
+            dict: A JSON-RPC style result object with a "content" list containing text items describing the result.
+        
+        Raises:
+            ValueError: If `params["name"]` is missing or does not match a known tool.
+        """
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
 
@@ -173,7 +207,15 @@ mock_mcp = MockMCPServer()
 
 # Simple token validation
 def validate_token(request: Request) -> bool:
-    """Validate authorization token"""
+    """
+    Check whether the incoming request contains a Bearer token that matches the MCP_ACCESS_TOKEN environment variable.
+    
+    Parameters:
+        request (Request): HTTP request whose `Authorization` header will be inspected; expected format is "Bearer <token>".
+    
+    Returns:
+        bool: `True` if the `Authorization` header contains a Bearer token equal to the `MCP_ACCESS_TOKEN` environment variable, `False` otherwise.
+    """
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return False
@@ -184,7 +226,16 @@ def validate_token(request: Request) -> bool:
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    """Authentication middleware"""
+    """
+    Enforces Bearer-token authentication for MCP HTTP endpoints.
+    
+    Parameters:
+        request (Request): Incoming FastAPI request to authenticate.
+        call_next (Callable): ASGI callable to invoke the next middleware or route handler.
+    
+    Returns:
+        Response: The downstream response produced by `call_next`, or a 401 JSON response with keys `"error"` and `"message"` when the token is missing or invalid.
+    """
     if request.url.path.startswith("/mcp/") and request.url.path != "/mcp/healthz":
         if not validate_token(request):
             return JSONResponse(
@@ -197,12 +248,26 @@ async def auth_middleware(request: Request, call_next):
 
 @app.get("/mcp/healthz")
 async def health_check():
-    """Health check endpoint"""
+    """
+    Provide server health status and current timestamp.
+    
+    Returns:
+        dict: A mapping with keys:
+            - "status" (str): the health status, set to "healthy".
+            - "timestamp" (float): the current Unix time in seconds.
+    """
     return {"status": "healthy", "timestamp": time.time()}
 
 @app.post("/mcp/")
 async def mcp_endpoint(request: Request):
-    """Main MCP JSON-RPC endpoint"""
+    """
+    Serve the main MCP JSON-RPC 2.0 endpoint and dispatch requests to the mock MCP server.
+    
+    Processes a JSON-RPC 2.0 request from the provided HTTP request, validates the message, invokes the corresponding MockMCPServer handler for supported methods ("initialize", "tools/list", "tools/call"), and returns a JSON-RPC 2.0 response. On handler errors it returns a JSON-RPC error object with code -32603; on JSON parse errors it returns a JSON-RPC parse error with code -32700 and HTTP 400; on unexpected failures it returns a JSON-RPC internal error with code -32603 and HTTP 500.
+    
+    Returns:
+        A JSON-serializable JSON-RPC 2.0 response (dict) containing either a `result` field for successful calls or an `error` object for failures; in parse or internal error cases a FastAPI JSONResponse is returned with the appropriate HTTP status code.
+    """
     try:
         body = await request.json()
 
@@ -283,7 +348,15 @@ async def mcp_endpoint(request: Request):
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """
+    Return basic server metadata and available endpoints.
+    
+    Returns:
+        dict: A mapping containing:
+            - "message" (str): Human-readable server name.
+            - "version" (str): Server version string.
+            - "endpoints" (dict): Available endpoint paths with keys "mcp" and "health".
+    """
     return {
         "message": "Docker Swarm MCP Server Mock",
         "version": "0.1.0",
@@ -294,7 +367,11 @@ async def root():
     }
 
 def main():
-    """Run the mock MCP server"""
+    """
+    Start the mock MCP development server and run it with Uvicorn.
+    
+    Prints startup information (service URLs and the configured MCP access token) to stdout, then launches the ASGI server bound to 0.0.0.0:8000 serving the application.
+    """
     print("🚀 Starting Mock Docker Swarm MCP Server")
     print("📋 This is a development server with mock Docker functionality")
     print("🔗 Server will be available at: http://localhost:8000")

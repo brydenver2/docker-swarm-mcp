@@ -32,10 +32,9 @@ logger = logging.getLogger(__name__)
 
 def log_tailscale_status() -> None:
     """
-    Check and log Tailscale status information.
-
-    This function checks if Tailscale is enabled and, if so,
-    attempts to retrieve and log the Tailscale IP address and status.
+    Log the current Tailscale integration and connection status.
+    
+    If TAILSCALE_ENABLED is false, logs that Tailscale is disabled. If enabled and the tailscale CLI is present, logs connection state; when connected, logs the first Tailscale IP (if any), the self hostname (if present), and any non-default configuration details (hostname, tags, state_dir). Emits warnings on missing CLI, failed status checks, JSON parse errors, timeouts, or other errors.
     """
     if not settings.TAILSCALE_ENABLED:
         logger.info("Tailscale integration: DISABLED")
@@ -121,6 +120,17 @@ def log_tailscale_status() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    Manage the application's startup and shutdown lifecycle, initializing logging, configuration, and runtime services.
+    
+    On startup this initializes logging, validates authentication settings, creates and validates the Docker client, builds the tool registry and tool-gating configuration (loading filter-config.json when present), initializes the intent classifier and MCP server, and stores created objects on app.state; on shutdown it logs server termination.
+    
+    Parameters:
+        app (FastAPI): The FastAPI application whose state will be populated with initialized services (docker_client, tool_registry, tool_gate_controller, mcp_server, intent_classifier).
+    
+    Raises:
+        ValueError: If neither TOKEN_SCOPES nor a non-empty MCP_ACCESS_TOKEN is configured.
+    """
     setup_logging()
     logger.info("Starting Docker Swarm MCP Server")
 
@@ -245,6 +255,18 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    """
+    Middleware that logs incoming HTTP requests, attaches a unique request_id to the request state, and forwards the request to the next handler.
+    
+    The function records request start time, warns if a legacy `accessToken` query parameter is present, measures request duration, redacts sensitive headers for logging, categorizes the request by logical tool based on path, and emits a structured log record containing method, path, request_id, duration_ms, status, headers, and inferred tool. The generated `request_id` is stored on `request.state.request_id`.
+    
+    Parameters:
+        request (Request): The incoming FastAPI request object.
+        call_next (Callable): The next request handler/callable to invoke to obtain the response.
+    
+    Returns:
+        Response: The HTTP response returned by the next handler.
+    """
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
 

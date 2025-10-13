@@ -45,6 +45,18 @@ class TaskTypeFilter(ToolFilter):
 
     def apply(self, tools: dict[str, Tool], context: FilterContext) -> dict[str, Tool]:
         # Check for strict no-match behavior before processing
+        """
+        Filter the provided tools according to the request context's task type signals and configured allowlists.
+        
+        Determines which task types to honor based on the INTENT_PRECEDENCE setting (preferring either detected intent or explicit task_type), merges per-task-type allowlists, and returns only tools that are both in the merged allowlist and declare one of the selected task types. If no task types are available, tools categorized as "meta-ops" are excluded from the default set. Behavior when allowlists are empty is controlled by strict and fallback settings: the method will either return an empty set or fall back to returning all tools.
+        
+        Parameters:
+            tools (dict[str, Tool]): Mapping of tool name to Tool instances to be filtered.
+            context (FilterContext): Context containing request metadata and task type signals (e.g., `task_type`, `detected_task_types`, `query`, `request_id`).
+        
+        Returns:
+            dict[str, Tool]: Subset of the input `tools` that pass the task-type and allowlist filters (possibly empty).
+        """
         if (context.query is not None and
             context.detected_task_types == [] and
             (settings.STRICT_CONTEXT_LIMIT or not settings.INTENT_FALLBACK_TO_ALL)):
@@ -133,13 +145,13 @@ class TaskTypeFilter(ToolFilter):
 
     def _merge_allowlists(self, task_types: list[str]) -> list[str]:
         """
-        Merge allowlists for multiple task types.
-
-        Args:
-            task_types: List of task types to merge
-
+        Merge tool allowlists for the given task types into a unique list.
+        
+        Parameters:
+            task_types (list[str]): Task types whose configured allowlists will be combined.
+        
         Returns:
-            Combined allowlist with unique tool names
+            merged_allowlist (list[str]): Unique tool names present in any of the specified allowlists.
         """
         merged = set()
         for task_type in task_types:
@@ -150,9 +162,22 @@ class TaskTypeFilter(ToolFilter):
 
 class ResourceFilter(ToolFilter):
     def __init__(self, max_tools: int):
+        """
+        Initialize the resource filter with a maximum allowed number of tools.
+        
+        Parameters:
+            max_tools (int): Maximum number of tools to retain when filtering; if the current tool count
+                is less than or equal to this value, no reduction will be performed.
+        """
         self.max_tools = max_tools
 
     def apply(self, tools: dict[str, Tool], context: FilterContext) -> dict[str, Tool]:
+        """
+        Limit the provided tools to the top-ranked entries according to priority and name until reaching the configured maximum.
+        
+        Returns:
+            dict[str, Tool]: A dictionary containing up to `max_tools` tools, selected by descending `priority` and then by ascending tool name as a tiebreaker.
+        """
         if len(tools) <= self.max_tools:
             return tools
 
@@ -169,9 +194,28 @@ class ResourceFilter(ToolFilter):
 
 class SecurityFilter(ToolFilter):
     def __init__(self, blocklist: list[str]):
+        """
+        Initialize the SecurityFilter with a set of blocked tool names.
+        
+        Parameters:
+            blocklist (list[str]): Iterable of tool names to block; duplicates will be removed and names are stored as a set for membership checks.
+        """
         self.blocklist = set(blocklist)
 
     def apply(self, tools: dict[str, Tool], context: FilterContext) -> dict[str, Tool]:
+        """
+        Exclude tools whose names are present in this filter's blocklist.
+        
+        Parameters:
+        	tools (dict[str, Tool]): Mapping of tool names to Tool objects to be filtered.
+        	context (FilterContext): Request-specific context (used for logging request_id).
+        
+        Returns:
+        	filtered (dict[str, Tool]): Mapping of tool names to Tool objects after removing blocked tools.
+        
+        Notes:
+        	If any tools are removed, their names are logged along with the request_id from the context.
+        """
         filtered = {
             name: tool
             for name, tool in tools.items()
@@ -196,6 +240,16 @@ class FilterConfig(BaseModel):
 
 class ToolGateController:
     def __init__(self, all_tools: dict[str, Tool], config: FilterConfig):
+        """
+        Initialize the ToolGateController with a set of tools and filter configuration, build the filter pipeline, and precompute per-tool size estimates for context budgeting.
+        
+        Parameters:
+            all_tools (dict[str, Tool]): Mapping of tool name to Tool model representing the available tools.
+            config (FilterConfig): Filtering configuration controlling task-type allowlists, resource limits, and security blocklist.
+        
+        Notes:
+            This constructor populates `self.filters` in the fixed pipeline order (task-type, resource, security), initializes internal size-caching fields (`_tool_sizes`, `_total_all_tools_size`, `_estimator_type`), and calls `_precompute_tool_sizes()` to compute serialized size estimates used by context-size calculations.
+        """
         self.all_tools = all_tools
         self.config = config
         self.filters: list[ToolFilter] = [
@@ -212,6 +266,17 @@ class ToolGateController:
         self._precompute_tool_sizes()
 
     def get_available_tools(self, context: FilterContext) -> tuple[dict[str, Tool], list[str]]:
+        """
+        Selects the subset of configured tools that remain after applying the filter pipeline for the given context.
+        
+        Applies each configured filter in order to the full tool set and records which filters actually changed the available tools.
+        
+        Parameters:
+            context (FilterContext): Contextual information used by filters to decide which tools to keep.
+        
+        Returns:
+            tuple[dict[str, Tool], list[str]]: A tuple where the first element is a mapping of tool names to Tool instances remaining after filtering, and the second element is an ordered list of filter class names that modified the tool set.
+        """
         tools = self.all_tools.copy()
         filters_applied = []
 
@@ -227,10 +292,30 @@ class ToolGateController:
         return tools, filters_applied
 
     def list_active_tools(self) -> list[str]:
+        """
+        List all tool names registered with the controller.
+        
+        Returns:
+            list[str]: The names of all tools known to the controller.
+        """
         return list(self.all_tools.keys())
 
     def get_context_size(self, tools: dict[str, Tool], enforce_hard_limit: bool | None = None) -> int:
         # Use STRICT_CONTEXT_LIMIT config if enforce_hard_limit not explicitly provided
+        """
+        Determine the estimated token size of the provided tool set and validate it against configured context limits.
+        
+        Parameters:
+            tools (dict[str, Tool]): Mapping of tool names to Tool instances to be measured.
+            enforce_hard_limit (bool | None): If True, raise an error when the hard token limit is exceeded;
+                if False, allow graceful degradation; if None, use the global STRICT_CONTEXT_LIMIT setting.
+        
+        Returns:
+            int: Estimated number of tokens required to include the given tools in context.
+        
+        Raises:
+            ValueError: If the estimated token count exceeds the hard limit (7600 tokens) and `enforce_hard_limit` is True.
+        """
         if enforce_hard_limit is None:
             enforce_hard_limit = settings.STRICT_CONTEXT_LIMIT
 
@@ -289,7 +374,14 @@ class ToolGateController:
         return token_count
 
     def _precompute_tool_sizes(self) -> None:
-        """Precompute serialized sizes for all tools to avoid repeated serialization"""
+        """
+        Precompute and cache token-size estimates for every tool to avoid repeated serialization.
+        
+        This populates the instance attributes `_tool_sizes` (mapping of tool name to estimated token count),
+        `_total_all_tools_size` (sum of all per-tool estimates), and `_estimator_type` (one of `"tiktoken"`, `"approx"`, or `"fallback"`).
+        When DEBUG is enabled and the `tiktoken` package is available, sizes are measured using the `cl100k_base` encoding; otherwise sizes are approximated by character length divided by four.
+        On any unexpected error the method sets `_estimator_type` to `"fallback"`, clears `_tool_sizes`, and sets `_total_all_tools_size` to 0.
+        """
         try:
             if settings.DEBUG:
                 try:

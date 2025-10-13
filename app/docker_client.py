@@ -17,12 +17,16 @@ logger = logging.getLogger(__name__)
 class DockerClient:
     def __init__(self) -> None:
         """
-        Initialize Docker client with explicit DOCKER_HOST/TLS/SSH semantics
-
-        Honors environment variables:
-        - DOCKER_HOST: Docker daemon socket (unix://, tcp://, ssh://)
-        - DOCKER_TLS_VERIFY: Enable TLS verification
-        - DOCKER_CERT_PATH: Path to TLS certificates (ca.pem, cert.pem, key.pem)
+        Initialize the Docker client honoring explicit DOCKER_HOST, TLS, and SSH configuration.
+        
+        Configures the client from application settings:
+        - DOCKER_HOST: daemon socket (unix://, tcp://, ssh://)
+        - DOCKER_TLS_VERIFY and DOCKER_CERT_PATH: enable and configure TLS with client and CA certificates
+        
+        Falls back to environment/default Unix socket when DOCKER_HOST is not explicitly set.
+        
+        Raises:
+            RuntimeError: If the Docker engine is unreachable during initialization.
         """
         try:
             # Construct client based on explicit configuration
@@ -83,6 +87,14 @@ class DockerClient:
         self._is_swarm_cache: bool | None = None
 
     def _is_swarm(self) -> bool:
+        """
+        Determine whether the connected Docker daemon is an active swarm manager.
+        
+        Caches the detected swarm state on first check to avoid repeated queries.
+        
+        Returns:
+            bool: `True` if the daemon's Swarm.LocalNodeState equals "active", `False` otherwise.
+        """
         if self._is_swarm_cache is None:
             info = self.client.info()
             swarm_info = info.get("Swarm", {})
@@ -90,12 +102,39 @@ class DockerClient:
         return self._is_swarm_cache
 
     def ping(self) -> bool:
+        """
+        Check connectivity to the Docker daemon.
+        
+        Returns:
+            True if the Docker daemon responded to a ping, False otherwise.
+        """
         return self.client.ping()
 
     def get_info(self) -> dict[str, Any]:
+        """
+        Retrieve Docker daemon information.
+        
+        Returns:
+            info (dict[str, Any]): Dictionary of daemon attributes reported by the Docker engine (for example: 'ID', 'Containers', 'Images', 'Swarm', and other engine-provided metadata).
+        """
         return self.client.info()
 
     def list_containers(self, all: bool = False, filters: Optional[dict] = None) -> list[dict[str, Any]]:
+        """
+        Return a list of containers with key metadata suitable for JSON responses.
+        
+        Returns:
+            list[dict[str, Any]]: Each item contains:
+                - `id`: short container id
+                - `name`: container name
+                - `status`: container status string
+                - `image`: preferred image tag or image short id
+                - `created`: ISO 8601 creation timestamp (UTC offset preserved)
+                - `ports`: list of port mappings where each mapping has
+                    - `private_port` (int): container port
+                    - `public_port` (int | None): host port if published, otherwise `None`
+                    - `type` (str): protocol, e.g. "tcp" or "udp"
+        """
         try:
             containers = self.client.containers.list(all=all, filters=filters)
             result = []
@@ -138,12 +177,31 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def remove_compose(self, project_name: str) -> None:
+        """
+        Remove a Compose project (standalone) or stack (Swarm) identified by its project name from the Docker host.
+        
+        Parameters:
+            project_name (str): The Compose project or stack name to remove. The operation removes all services/containers belonging to that project/stack.
+        """
         if self._is_swarm():
             self._remove_compose_swarm(project_name)
         else:
             self._remove_compose_standalone(project_name)
 
     def _remove_compose_swarm(self, project_name: str) -> None:
+        """
+        Remove all Docker Swarm services that belong to the specified Compose stack.
+        
+        Locates services labeled `com.docker.stack.namespace=<project_name>` and removes each matching service. Raises an HTTPException with status 404 if no services for the given stack are found; raises 424 on Docker API errors and 500 on other Docker-related errors.
+        
+        Parameters:
+            project_name (str): Name of the Compose stack (value of the `com.docker.stack.namespace` label).
+        
+        Raises:
+            HTTPException: 404 if the stack is not found.
+            HTTPException: 424 if a Docker API error occurs.
+            HTTPException: 500 if a general Docker error occurs.
+        """
         try:
             services = self.client.services.list(filters={"label": f"com.docker.stack.namespace={project_name}"})
 
@@ -162,6 +220,19 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def _remove_compose_standalone(self, project_name: str) -> None:
+        """
+        Remove all standalone containers belonging to a Compose project identified by its project name.
+        
+        Looks up containers labeled `com.docker.compose.project=<project_name>` and removes each one with force=True.
+        
+        Parameters:
+            project_name (str): Compose project name used in the `com.docker.compose.project` label.
+        
+        Raises:
+            HTTPException: 404 if no containers for the project are found.
+            HTTPException: 424 if the Docker API returns an error while removing containers.
+            HTTPException: 500 if a generic Docker error occurs.
+        """
         try:
             containers = self.client.containers.list(all=True, filters={"label": f"com.docker.compose.project={project_name}"})
 
@@ -180,6 +251,32 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def create_container(self, config: dict[str, Any]) -> dict[str, Any]:
+        """
+        Create a new container from the provided configuration and return its basic metadata.
+        
+        Parameters:
+            config (dict): Container creation configuration. Expected keys:
+                - image (str): Required. Image reference to create the container from.
+                - name (str, optional): Container name.
+                - environment (dict|list[str], optional): Environment variables as a dict or list of `KEY=VALUE` strings.
+                - ports (dict|list, optional): Port mappings accepted by the Docker SDK.
+                - volumes (dict|list, optional): Volume bindings accepted by the Docker SDK.
+                - restart_policy (str, optional): Restart policy name (defaults to `"no"`).
+        
+        Returns:
+            dict: Metadata about the created container with keys:
+                - id (str): Container short ID.
+                - name (str): Container name.
+                - status (str): Container status immediately after creation.
+                - image (str): Image reference used to create the container.
+                - created (str): ISO-formatted timestamp when the record was created.
+        
+        Raises:
+            HTTPException: 404 if the image is not found.
+            HTTPException: 409 if there is a container name conflict.
+            HTTPException: 400 for other Docker API errors during creation.
+            HTTPException: 500 for generic Docker client errors.
+        """
         try:
             container = self.client.containers.create(
                 image=config["image"],
@@ -209,6 +306,17 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def start_container(self, container_id: str) -> None:
+        """
+        Start a container by its ID or name.
+        
+        Parameters:
+            container_id (str): The container identifier or name to start.
+        
+        Raises:
+            HTTPException: 404 if the container does not exist.
+            HTTPException: 424 if the Docker API returns an error while starting.
+            HTTPException: 500 for other Docker-related errors.
+        """
         try:
             container = self.client.containers.get(container_id)
             container.start()
@@ -222,6 +330,18 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def stop_container(self, container_id: str, timeout: int = 10) -> None:
+        """
+        Stop the container identified by `container_id`, waiting up to `timeout` seconds for it to stop.
+        
+        Parameters:
+            container_id (str): Container identifier or name.
+            timeout (int): Seconds to wait for the container to stop before killing it.
+        
+        Raises:
+            HTTPException: 404 if the container does not exist.
+            HTTPException: 424 if the Docker Engine returns an API error while stopping the container.
+            HTTPException: 500 for other Docker-related errors.
+        """
         try:
             container = self.client.containers.get(container_id)
             container.stop(timeout=timeout)
@@ -235,6 +355,18 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def remove_container(self, container_id: str, force: bool = False) -> None:
+        """
+        Remove a container identified by `container_id`, optionally forcing removal of running containers.
+        
+        Parameters:
+            container_id (str): ID or name of the container to remove.
+            force (bool): If `True`, force removal even if the container is running.
+        
+        Raises:
+            HTTPException: 404 if the container does not exist.
+            HTTPException: 424 for Docker API errors.
+            HTTPException: 500 for other Docker-related errors.
+        """
         try:
             container = self.client.containers.get(container_id)
             container.remove(force=force)
@@ -248,6 +380,21 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def get_logs(self, container_id: str, tail: int = 100, since: Optional[str] = None, follow: bool = False) -> str:
+        """
+        Retrieve the logs of a container as a UTF-8 string.
+        
+        Parameters:
+            container_id (str): ID or name of the container to fetch logs from.
+            tail (int): Number of lines from the end of the logs to return (default 100).
+            since (Optional[str]): Return logs since this timestamp (RFC3339 or seconds) or None to ignore.
+            follow (bool): If True, stream logs; otherwise return a snapshot (streaming is controlled by the Docker client).
+        
+        Returns:
+            str: Container logs decoded as a UTF-8 string.
+        
+        Raises:
+            HTTPException: 404 if the container does not exist; 424 for Docker API errors; 500 for other Docker client errors.
+        """
         try:
             container = self.client.containers.get(container_id)
             logs = container.logs(tail=tail, since=since, follow=follow, stream=False)
@@ -262,6 +409,22 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def deploy_compose(self, project_name: str, compose_yaml: str, force_recreate: bool = False) -> dict[str, Any]:
+        """
+        Deploy a Docker Compose project to the connected Docker daemon, using swarm mode when available.
+        
+        Parses the provided Compose YAML, validates it targets Compose specification version 3.x, ensures services are defined, and dispatches to the swarm or standalone deployment path. If swarm mode is active, services are deployed as Swarm services; otherwise containers are created and started.
+        
+        Parameters:
+            project_name (str): Logical name used as the Compose project/stack namespace for created services or containers.
+            compose_yaml (str): Compose file contents in YAML format describing services and their configuration.
+            force_recreate (bool): If true, existing services/containers with the same project+service names will be removed and recreated; otherwise existing resources are left in place.
+        
+        Returns:
+            dict[str, Any]: Deployment summary including at least `project_name`, `services` (created or existing service/container names), `mode` ("swarm" or "standalone"), and `created` (ISO timestamp).
+        
+        Raises:
+            HTTPException: If the YAML cannot be parsed (400), if the Compose version is not 3.x (400), or if no services are defined (400).
+        """
         try:
             compose_dict = yaml.safe_load(compose_yaml)
         except yaml.YAMLError as e:
@@ -281,6 +444,24 @@ class DockerClient:
             return self._deploy_compose_standalone(project_name, services, force_recreate)
 
     def _deploy_compose_swarm(self, project_name: str, services: dict[str, Any], force_recreate: bool) -> dict[str, Any]:
+        """
+        Deploys a compose-style project as Docker Swarm services under a stack namespace.
+        
+        Parameters:
+        	project_name (str): Stack/compose project name used as the service namespace prefix.
+        	services (dict[str, Any]): Mapping of service keys to service definitions; each definition must include an `image` and may include `environment` (dict or list of "KEY=VAL" strings) and `replicas` (int).
+        	force_recreate (bool): If true, remove any existing services with the same names before creating new ones.
+        
+        Returns:
+        	result (dict[str, Any]): Deployment summary with keys:
+        		- `project_name` (str): the provided project_name,
+        		- `services` (list[str]): list of created or existing full service names (formatted as "{project_name}_{service_name}"),
+        		- `mode` (str): `"swarm"`,
+        		- `created` (str): ISO-8601 timestamp of the deployment.
+        
+        Raises:
+        	HTTPException: 400 if a service definition is missing `image`; 424 for Docker API errors; 500 for other Docker errors.
+        """
         try:
             created_services = []
 
@@ -331,6 +512,28 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def _deploy_compose_standalone(self, project_name: str, services: dict[str, Any], force_recreate: bool) -> dict[str, Any]:
+        """
+        Deploy a compose-style set of services as standalone Docker containers under a project namespace.
+        
+        Parameters:
+            project_name (str): Project/stack name used as a prefix for container names and as the `com.docker.compose.project` label.
+            services (dict[str, Any]): Mapping of service name to Compose-like service configuration. Supported keys:
+                - image (str): Required image reference for the service.
+                - environment (dict | list): Environment variables as a dict or a list of "KEY=VAL" strings.
+                - ports (list): List of port bindings as strings in the form "host_port:container_port".
+            force_recreate (bool): If true, existing containers with the same project-prefixed name will be removed before creation.
+        
+        Returns:
+            dict[str, Any]: Result object containing:
+                - project_name: the provided project_name,
+                - services: list of created (or preserved) container names,
+                - mode: the string "standalone",
+                - created: ISO-8601 timestamp for when the deployment was recorded.
+        
+        Raises:
+            HTTPException: Raised with status 400 for invalid service configuration (e.g., missing image);
+                424 for Docker API errors; 500 for other Docker errors.
+        """
         try:
             created_containers = []
 
@@ -394,12 +597,37 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def list_stacks(self) -> list[dict[str, Any]]:
+        """
+        List deployed stacks (compose projects) on the connected Docker daemon.
+        
+        Each returned item describes a stack/project and includes:
+        - `project_name` (str): stack or compose project name.
+        - `services` (list[str]): names of services/containers belonging to the stack.
+        - `service_count` (int): number of services in the stack.
+        
+        The method detects whether the daemon is a Swarm manager and returns stacks accordingly (Swarm services grouped by `com.docker.stack.namespace`, or standalone containers grouped by `com.docker.compose.project`).
+        
+        Returns:
+            list[dict[str, Any]]: List of stack descriptors as described above.
+        """
         if self._is_swarm():
             return self._list_stacks_swarm()
         else:
             return self._list_stacks_standalone()
 
     def _list_stacks_swarm(self) -> list[dict[str, Any]]:
+        """
+        Collects Docker stack (compose project) names from Swarm services and summarizes their services.
+        
+        Returns:
+            list[dict[str, Any]]: A list of dictionaries, each containing:
+                - "project_name": stack namespace (str)
+                - "services": list of service names belonging to the stack (list[str])
+                - "service_count": number of services in the stack (int)
+        
+        Raises:
+            fastapi.HTTPException: with status 424 if a Docker API error occurs, or 500 for other Docker errors.
+        """
         try:
             services = self.client.services.list()
             stacks = {}
@@ -430,6 +658,19 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def _list_stacks_standalone(self) -> list[dict[str, Any]]:
+        """
+        Collect standalone Docker Compose projects by grouping containers that have the `com.docker.compose.project` label.
+        
+        Returns:
+            list[dict[str, Any]]: Each dict contains:
+                - "project_name": the compose project name (str).
+                - "services": list of container names (list[str]).
+                - "service_count": number of services in the project (int).
+        
+        Raises:
+            HTTPException: with status 424 if a Docker API error occurs.
+            HTTPException: with status 500 if a general Docker error occurs.
+        """
         try:
             containers = self.client.containers.list(all=True)
             stacks = {}
@@ -460,6 +701,20 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def list_services(self) -> list[dict[str, Any]]:
+        """
+        List Docker services and return a simplified overview for each service.
+        
+        Each item in the returned list represents a service and contains the following keys:
+        - `id`: short service identifier.
+        - `name`: service name.
+        - `replicas`: integer number of replicas (0 if the service is in global mode or replicas not specified).
+        - `image`: container image string from the service specification (empty string if not present).
+        - `created`: `CreatedAt` timestamp string from the service attributes.
+        - `mode`: service mode, either `"replicated"` or `"global"`.
+        
+        Returns:
+            list[dict[str, Any]]: A list of service summary dictionaries as described above.
+        """
         try:
             services = self.client.services.list()
             result = []
@@ -498,6 +753,28 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def scale_service(self, service_name: str, replicas: int) -> dict[str, Any]:
+        """
+        Scale a swarm service to the requested number of replicas and return its updated metadata.
+        
+        Parameters:
+            service_name (str): Name or ID of the service to scale.
+            replicas (int): Desired number of replicas for the service.
+        
+        Returns:
+            dict: Metadata for the service after scaling with keys:
+                - id (str): Short service ID.
+                - name (str): Service name.
+                - replicas (int): Current number of replicas.
+                - image (str): Container image used by the service.
+                - created (str): Service creation timestamp from the Docker API.
+                - mode (str): Service mode (will be "replicated" on success).
+        
+        Raises:
+            HTTPException: 400 if the service is in global mode and cannot be scaled.
+            HTTPException: 404 if the service is not found.
+            HTTPException: 424 for Docker API errors.
+            HTTPException: 500 for other Docker-related errors.
+        """
         try:
             service = self.client.services.get(service_name)
 
@@ -537,6 +814,17 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def remove_service(self, service_name: str) -> None:
+        """
+        Remove a Docker Swarm service identified by name or ID.
+        
+        Parameters:
+            service_name (str): The service name or ID to remove.
+        
+        Raises:
+            HTTPException: 404 if the service is not found.
+            HTTPException: 424 if the Docker API returns an error.
+            HTTPException: 500 for other Docker-related errors.
+        """
         try:
             service = self.client.services.get(service_name)
             service.remove()
@@ -550,6 +838,20 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def list_networks(self) -> list[dict[str, Any]]:
+        """
+        List Docker networks available to the configured Docker daemon.
+        
+        Returns:
+            networks (list[dict[str, Any]]): A list of network descriptors. Each descriptor contains:
+                - id: short network ID (str)
+                - name: network name (str)
+                - driver: network driver (str)
+                - scope: network scope, e.g. "local" (str)
+                - created: creation timestamp in ISO 8601 format (str)
+        
+        Raises:
+            HTTPException: Raises an HTTPException with status 424 for Docker API errors or 500 for other Docker errors.
+        """
         try:
             networks = self.client.networks.list()
             result = []
@@ -581,6 +883,29 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def create_network(self, config: dict[str, Any]) -> dict[str, Any]:
+        """
+        Create a Docker network from the provided configuration.
+        
+        Parameters:
+            config (dict[str, Any]): Network configuration. Expected keys:
+                - name (str): Required network name.
+                - driver (str, optional): Network driver (default "bridge").
+                - ipam (dict, optional): IP Address Management configuration.
+                - options (dict, optional): Driver-specific options.
+        
+        Returns:
+            dict[str, Any]: Network summary containing:
+                - id: Short network ID.
+                - name: Network name.
+                - driver: Network driver.
+                - scope: Network scope (e.g., "local").
+                - created: ISO 8601 creation timestamp.
+        
+        Raises:
+            HTTPException: 409 if a network name conflict occurs;
+                           400 for other Docker API errors;
+                           500 for generic Docker errors.
+        """
         try:
             network = self.client.networks.create(
                 name=config["name"],
@@ -615,6 +940,17 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def remove_network(self, network_id: str) -> None:
+        """
+        Remove a Docker network by its ID or name.
+        
+        Parameters:
+            network_id (str): The Docker network ID or name to remove.
+        
+        Raises:
+            HTTPException: 404 if the network does not exist.
+            HTTPException: 424 if the Docker API returns an error while removing the network.
+            HTTPException: 500 if a general Docker error occurs.
+        """
         try:
             network = self.client.networks.get(network_id)
             network.remove()
@@ -628,6 +964,20 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def list_volumes(self) -> list[dict[str, Any]]:
+        """
+        Return a list of Docker volumes with normalized metadata.
+        
+        Returns:
+            list[dict[str, Any]]: A list of volume records, each containing:
+                - name: volume name
+                - driver: volume driver (defaults to "local" if absent)
+                - mountpoint: volume mountpoint (empty string if absent)
+                - created: ISO 8601 creation timestamp (falls back to current time if parsing fails)
+        
+        Raises:
+            HTTPException: 424 if the Docker API returns an error.
+            HTTPException: 500 if a general Docker client error occurs.
+        """
         try:
             volumes = self.client.volumes.list()
             result = []
@@ -658,6 +1008,27 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def create_volume(self, config: dict[str, Any]) -> dict[str, Any]:
+        """
+        Create a Docker volume from the provided configuration and return its metadata.
+        
+        Parameters:
+            config (dict): Volume configuration. Expected keys:
+                - name (str): Required volume name.
+                - driver (str, optional): Volume driver to use (default "local").
+                - options (dict, optional): Driver-specific options passed as driver_opts.
+                - labels (dict, optional): Labels to apply to the volume.
+        
+        Returns:
+            dict: Metadata for the created volume with keys:
+                - name (str): Volume name.
+                - driver (str): Driver used for the volume.
+                - mountpoint (str): Host path where the volume is mounted.
+                - created (str): Creation time as an ISO 8601 timestamp.
+        
+        Raises:
+            HTTPException: If the Docker API reports an error (409 for name conflict, 400 for other API errors),
+                           or if a lower-level Docker error occurs (500).
+        """
         try:
             volume = self.client.volumes.create(
                 name=config["name"],
@@ -691,6 +1062,18 @@ class DockerClient:
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
 
     def remove_volume(self, volume_name: str) -> None:
+        """
+        Remove a Docker volume by name.
+        
+        Parameters:
+            volume_name (str): Name or ID of the volume to remove.
+        
+        Raises:
+            HTTPException: 404 if the volume does not exist.
+            HTTPException: 409 if the volume is in use and cannot be removed.
+            HTTPException: 424 if the Docker API returns an error.
+            HTTPException: 500 for other Docker-related errors.
+        """
         try:
             volume = self.client.volumes.get(volume_name)
             volume.remove()

@@ -14,12 +14,22 @@ class TestKeywordIntentClassifier:
 
     @pytest.fixture
     def default_classifier(self):
-        """Create classifier with default mappings."""
+        """
+        Provide a KeywordIntentClassifier configured with the default keyword mappings for tests.
+        
+        Returns:
+            KeywordIntentClassifier: An instance pre-configured with the classifier's default keyword mappings.
+        """
         return KeywordIntentClassifier()
 
     @pytest.fixture
     def custom_classifier(self):
-        """Create classifier with custom test mappings."""
+        """
+        Create a KeywordIntentClassifier configured with a small set of custom keyword mappings for tests.
+        
+        Returns:
+            KeywordIntentClassifier: Instance configured with mappings for `container-ops` (["container", "docker run", "start", "stop"]), `network-ops` (["network", "bridge", "overlay"]), and `system-ops` (["info", "ping", "version"]).
+        """
         custom_mappings = {
             "container-ops": ["container", "docker run", "start", "stop"],
             "network-ops": ["network", "bridge", "overlay"],
@@ -235,7 +245,12 @@ class TestIntentClassifierIntegration:
 
     @pytest.fixture
     def classifier(self):
-        """Create classifier for integration tests."""
+        """
+        Provide a classifier instance for integration tests.
+        
+        Returns:
+            KeywordIntentClassifier: An instantiated classifier configured with default keyword mappings.
+        """
         return KeywordIntentClassifier()
 
     def test_real_world_queries(self, classifier):
@@ -296,7 +311,12 @@ class TestIntentClassifierEdgeCases:
 
     @pytest.fixture
     def classifier(self):
-        """Create classifier for edge case tests."""
+        """
+        Provide a KeywordIntentClassifier instance for edge-case test scenarios.
+        
+        Returns:
+            KeywordIntentClassifier: An instance used to classify queries in edge-case tests (e.g., empty, whitespace-only, unicode, and special-character inputs).
+        """
         return KeywordIntentClassifier()
 
     def test_empty_query(self, classifier):
@@ -372,7 +392,12 @@ class TestIntentClassifierPerformance:
 
     @pytest.fixture
     def classifier(self):
-        """Create classifier for performance tests."""
+        """
+        Create a KeywordIntentClassifier instance used for performance tests.
+        
+        Returns:
+            KeywordIntentClassifier: A new classifier configured with default keyword mappings.
+        """
         return KeywordIntentClassifier()
 
     def test_classification_speed(self, classifier):

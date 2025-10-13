@@ -176,6 +176,12 @@ class TestRetryDecorator:
         """Test decorator with successful function"""
         @retry_async(config=READ_RETRY_CONFIG, operation_name="decorated_func")
         async def test_func():
+            """
+            Provide a sentinel success value used by decorator tests.
+            
+            Returns:
+                str: The sentinel value "decorated_success".
+            """
             return "decorated_success"
 
         result = await test_func()

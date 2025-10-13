@@ -19,7 +19,20 @@ HEADERS = {
 }
 
 def test_endpoint(method: str, endpoint: str, data: dict[str, Any] = None) -> dict[str, Any]:
-    """Test an endpoint and return the response"""
+    """
+    Send an HTTP GET or POST to an MCP endpoint and return the server response.
+    
+    Parameters:
+        method (str): HTTP method to use; expected "GET" or "POST".
+        endpoint (str): Path appended to BASE_URL (for example "/mcp/healthz" or "/mcp/").
+        data (dict[str, Any], optional): JSON payload to include for POST requests.
+    
+    Returns:
+        dict[str, Any]: Parsed JSON response when the response is valid JSON;
+        if the response body is not JSON, returns {"raw_response": "<text>"}.
+        On connection failure returns {"error": "connection_failed"}; on other errors
+        returns {"error": "<error message>"}.
+    """
     url = f"{BASE_URL}{endpoint}"
 
     try:
@@ -54,7 +67,14 @@ def test_endpoint(method: str, endpoint: str, data: dict[str, Any] = None) -> di
         return {"error": str(e)}
 
 def test_mcp_initialize():
-    """Test MCP initialize endpoint"""
+    """
+    Invoke the MCP "initialize" JSON-RPC method on the configured server.
+    
+    Sends a JSON-RPC `initialize` request with protocolVersion, capabilities, and clientInfo to the /mcp/ endpoint.
+    
+    Returns:
+        dict: Parsed JSON response from the endpoint if available; otherwise a dict containing the raw response text or an `error` entry describing the failure.
+    """
     print("\n🔧 Testing MCP Initialize Endpoint")
 
     data = {
@@ -76,7 +96,17 @@ def test_mcp_initialize():
     return test_endpoint("POST", "/mcp/", data)
 
 def test_tools_list():
-    """Test tools/list endpoint"""
+    """
+    Invoke the MCP `tools/list` JSON-RPC endpoint and check the default tools list for meta-tools.
+    
+    Sends a `tools/list` request to the MCP server and prints a warning if any meta-tools
+    (`discover-tools`, `list-task-types`, `intent-query-help`) are present in the returned
+    default tools list; otherwise confirms their absence.
+    
+    Returns:
+        dict: Response dictionary containing an HTTP status and either a parsed JSON
+        `result` (when available) or an error/raw response text.
+    """
     print("\n🔧 Testing Tools List Endpoint")
 
     data = {
@@ -103,7 +133,14 @@ def test_tools_list():
     return result
 
 def test_prompts_list():
-    """Test prompts/list endpoint"""
+    """
+    Invoke the MCP JSON-RPC "prompts/list" method and return the server response.
+    
+    Sends a JSON-RPC request for "prompts/list" to the /mcp/ endpoint and returns the response parsed as JSON when possible; if JSON parsing fails the returned dict contains the raw response text or an error entry.
+    
+    Returns:
+        dict: Parsed JSON response from the server, or a dict containing raw response text or an error description.
+    """
     print("\n🔧 Testing Prompts List Endpoint")
 
     data = {
@@ -116,7 +153,14 @@ def test_prompts_list():
     return test_endpoint("POST", "/mcp/", data)
 
 def test_prompts_get():
-    """Test prompts/get endpoint"""
+    """
+    Invoke the prompts/get JSON-RPC method for the "discover-tools" prompt and return the endpoint response.
+    
+    Sends a JSON-RPC request for method `prompts/get` with `name` set to `"discover-tools"`. If the response contains a `result.messages` list, asserts that the first message's `content.text` includes the substring `"container-ops"` and prints a confirmation when the assertion passes.
+    
+    Returns:
+        dict: Parsed JSON response from the endpoint, or a diagnostic/error dict if the request fails or the response is not valid JSON.
+    """
     print("\n🔧 Testing Prompts Get Endpoint")
 
     data = {
@@ -141,7 +185,12 @@ def test_prompts_get():
     return result
 
 def test_prompts_get_invalid():
-    """Test prompts/get endpoint with invalid prompt name"""
+    """
+    Invoke the MCP `prompts/get` method using an invalid prompt name.
+    
+    Returns:
+        dict: The HTTP response parsed as JSON when possible. If JSON parsing fails, a dict containing the raw response text or an `error` entry describing the failure.
+    """
     print("\n🔧 Testing Invalid Prompt Name")
 
     data = {
@@ -156,7 +205,12 @@ def test_prompts_get_invalid():
     return test_endpoint("POST", "/mcp/", data)
 
 def test_tools_call():
-    """Test tools/call endpoint"""
+    """
+    Invoke the MCP `tools/call` method for `list-containers`, seeding session tools first by calling `tools/list`.
+    
+    Returns:
+        dict: The response from the `tools/call` request — typically parsed JSON. May contain raw response text or an `error` description if parsing or connection failed.
+    """
     print("\n🔧 Testing Tools Call Endpoint")
 
     # First call tools/list to seed session_tools
@@ -184,7 +238,12 @@ def test_tools_call():
     return test_endpoint("POST", "/mcp/", data)
 
 def test_invalid_method():
-    """Test invalid MCP method"""
+    """
+    Send a JSON-RPC request using an unsupported method to observe the MCP error response.
+    
+    Returns:
+        dict: The HTTP response data as returned by test_endpoint — typically includes status code and either parsed JSON (result or error) or raw response text or an error description.
+    """
     print("\n🔧 Testing Invalid Method")
 
     data = {
@@ -196,7 +255,15 @@ def test_invalid_method():
     return test_endpoint("POST", "/mcp/", data)
 
 def test_malformed_json():
-    """Test malformed JSON"""
+    """
+    Send a POST with deliberately malformed JSON to the /mcp/ endpoint to observe server behavior.
+    
+    Performs a POST to BASE_URL/mcp/ with an invalid JSON payload and returns the raw HTTP outcome.
+    
+    Returns:
+        dict: On success, {'status': <int HTTP status code>, 'response': <str raw response body>}.
+              On failure/exception, {'error': <str error message>}.
+    """
     print("\n🔧 Testing Malformed JSON")
 
     url = f"{BASE_URL}/mcp/"
@@ -226,7 +293,12 @@ def test_health_endpoint():
     return test_endpoint("GET", "/mcp/healthz")
 
 def test_unauthorized_access():
-    """Test unauthorized access"""
+    """
+    Send a POST request to /mcp/ without an Authorization header to observe the server's response to an unauthorized request.
+    
+    Returns:
+        dict: On success, {"status": <int HTTP status code>, "response": "<raw response text>"}. On exception, {"error": "<exception message>"}.
+    """
     print("\n🔧 Testing Unauthorized Access")
 
     url = f"{BASE_URL}/mcp/"
@@ -252,7 +324,14 @@ def test_unauthorized_access():
         return {"error": str(e)}
 
 def test_meta_tool_discover():
-    """Test discover-tools meta-tool"""
+    """
+    Invoke the "discover-tools" meta-tool after seeding session tools.
+    
+    This function first calls "tools/list" with params {"task_type": "meta-ops"} to seed the session tools, then calls "tools/call" with name "discover-tools" and returns the response.
+    
+    Returns:
+        dict: Response from the meta-tool call — the parsed JSON response when available, or a dictionary containing raw response text or error details.
+    """
     print("\n🔧 Testing Meta-Tool: discover-tools")
 
     # First call tools/list with meta-ops to seed session tools
@@ -279,7 +358,14 @@ def test_meta_tool_discover():
     return test_endpoint("POST", "/mcp/", data)
 
 def test_meta_tool_list_task_types():
-    """Test list-task-types meta-tool"""
+    """
+    Invoke the "list-task-types" meta-tool after seeding the session tools.
+    
+    This function first requests tools/list with task_type "meta-ops" to ensure meta-tools are available in the session, then calls tools/call for the "list-task-types" meta-tool and returns the resulting response.
+    
+    Returns:
+        dict: The HTTP endpoint response as a dictionary; typically contains a parsed JSON-RPC response (e.g., a `result` or `error` key) or an error description returned by the helper.
+    """
     print("\n🔧 Testing Meta-Tool: list-task-types")
 
     # First call tools/list with meta-ops to seed session tools
@@ -306,7 +392,14 @@ def test_meta_tool_list_task_types():
     return test_endpoint("POST", "/mcp/", data)
 
 def test_meta_tool_intent_help():
-    """Test intent-query-help meta-tool"""
+    """
+    Run the "intent-query-help" meta-tool flow against the MCP endpoint.
+    
+    Seeds the session by calling `tools/list` with `task_type` set to "meta-ops", then invokes the `tools/call` method for the "intent-query-help" meta-tool.
+    
+    Returns:
+        dict: The response from the final MCP request — typically the parsed JSON response or an error dictionary as returned by `test_endpoint`.
+    """
     print("\n🔧 Testing Meta-Tool: intent-query-help")
 
     # First call tools/list with meta-ops to seed session tools
@@ -333,7 +426,12 @@ def test_meta_tool_intent_help():
     return test_endpoint("POST", "/mcp/", data)
 
 def test_tools_list_meta_ops():
-    """Test tools/list with meta-ops task type"""
+    """
+    Request the tools list filtered by the "meta-ops" task type.
+    
+    Returns:
+        dict: The response dictionary from the endpoint call, containing either parsed JSON result or error information.
+    """
     print("\n🔧 Testing Tools List with meta-ops Task Type")
 
     data = {
@@ -348,7 +446,11 @@ def test_tools_list_meta_ops():
     return test_endpoint("POST", "/mcp/", data)
 
 def main():
-    """Run all MCP endpoint tests"""
+    """
+    Run the full suite of MCP endpoint tests and print a summary report.
+    
+    Executes all defined test helpers against the configured BASE_URL using the configured token, prints an introductory header, runs each test in sequence collecting results, and prints a concise pass/fail/unknown summary and basic troubleshooting guidance for connection errors.
+    """
     print("🚀 Starting MCP Endpoint Tests")
     print(f"📡 Target URL: {BASE_URL}")
     print(f"🔑 Using Token: {TOKEN[:20]}...")

@@ -32,6 +32,17 @@ class HTTPBearerOrQuery(HTTPBearer):
 
     async def __call__(self, request: Request) -> HTTPAuthorizationCredentials:
         # Try Authorization header first (standard behavior)
+        """
+        Accept an access token from the Authorization header (Bearer) or the X-Access-Token header and return HTTP authorization credentials.
+        
+        If the Authorization header contains a Bearer token, that token is used. If not, the X-Access-Token header is used as a fallback. Query-parameter authentication is not supported.
+        
+        Returns:
+            HTTPAuthorizationCredentials: Credentials containing the scheme (typically "Bearer") and the token string.
+        
+        Raises:
+            HTTPException: With status 403 and WWW-Authenticate: "Bearer" when no valid token is found.
+        """
         authorization = request.headers.get("Authorization")
         scheme, credentials = get_authorization_scheme_param(authorization)
 
@@ -85,15 +96,15 @@ async def verify_token_with_scopes(
     credentials: HTTPAuthorizationCredentials = Security(security)
 ) -> set[str]:
     """
-    Verify token and extract scopes for MCP endpoint authorization
-
-    Supports:
-    1. Multiple tokens with per-token scopes (TOKEN_SCOPES JSON mapping)
-    2. JWT token claims (if using JWT)
-    3. Single shared token (MCP_ACCESS_TOKEN with default admin scope)
-
+    Validate the provided access token and return the set of authorization scopes for MCP endpoints.
+    
+    Determines scopes from a per-token mapping, from JWT claims, or from the single shared token configuration and raises HTTPException on misconfiguration or invalid token.
+    
     Returns:
-        Set of scope strings (e.g., {"admin", "container-ops", "read-only"})
+        set[str]: The resolved set of scope strings (for example {"admin", "container-ops", "read-only"}).
+    
+    Raises:
+        HTTPException: 500 if neither TOKEN_SCOPES nor MCP_ACCESS_TOKEN is configured; 401 if the token is invalid or missing.
     """
     token = credentials.credentials
 

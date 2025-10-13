@@ -111,7 +111,11 @@ class TestMCPProtocolCompliance:
         assert response.status_code == 403
 
     def test_query_parameter_auth_no_longer_supported(self, test_client_with_mock):
-        """Test that query parameter authentication is no longer supported (security improvement)"""
+        """
+        Verify that authentication using the legacy `accessToken` query parameter is rejected.
+        
+        Asserts that a request to the MCP endpoint including `accessToken` in the query string is denied with HTTP 403 Forbidden.
+        """
         response = test_client_with_mock.post(
             f"/mcp/?accessToken={TEST_TOKEN}",
             json={
@@ -372,7 +376,11 @@ class TestMCPProtocolCompliance:
         assert data["error"]["code"] == -32601  # METHOD_NOT_FOUND
 
     def test_unauthorized_request(self, test_client_with_mock):
-        """Test request without authentication token"""
+        """
+        Assert that a JSON-RPC request sent without authentication is rejected.
+        
+        Sends a POST to the MCP endpoint without any authentication headers and verifies the server responds with HTTP 403 Forbidden.
+        """
         response = test_client_with_mock.post(
             "/mcp/",
             json={
@@ -481,7 +489,11 @@ class TestTokenScopesAndRequiredScopes:
         assert "list-containers" in tool_names
 
     def test_tools_call_fails_without_required_scopes(self, test_client_with_mock, monkeypatch):
-        """Test tools/call returns error when user lacks required scopes"""
+        """
+        Verify that calling a container tool fails when the token lacks required scopes.
+        
+        Sends a tools/call request for the "list-containers" tool using a token granted only the "network-ops" scope and asserts the response contains an error. The error code is expected to be either -32601 (method not found) or 403 (permission denied).
+        """
         import json
 
         # Setup: network-token has only network-ops scope (not container-ops)
@@ -645,7 +657,11 @@ class TestSchemaValidation:
         assert data["id"] == 9
 
     def test_output_schema_validation(self, test_client_with_mock):
-        """Test output validation against response_schema"""
+        """
+        Verify that a tools/call response is processed against the configured response schema without causing the request to fail.
+        
+        Sends a `tools/call` request for `list-containers` and asserts the response follows the JSON-RPC 2.0 structure; this exercises output schema validation (which is logged) but does not make the request fail.
+        """
         # Output validation is logged but doesn't fail requests
         # This test ensures the validation logic runs
         response = test_client_with_mock.post(
@@ -844,7 +860,14 @@ class TestIntentBasedToolDiscovery:
         assert "info" in tool_names
 
     def test_tools_list_with_no_match_query(self, test_client_with_mock):
-        """Test query with no keyword matches."""
+        """
+        Verify that an intent query with no matching keywords yields an empty `detected_task_types` list and `classification_method` set to "intent", and that when intent fallback is enabled the endpoint returns the full tools set.
+        
+        Asserts:
+        - `metadata["detected_task_types"]` is an empty list
+        - `metadata["classification_method"]` equals `"intent"`
+        - the returned `tools` list is non-empty (fallback behavior)
+        """
         response = test_client_with_mock.post(
             "/mcp/",
             json={
@@ -986,7 +1009,9 @@ class TestIntentBasedToolDiscovery:
         assert len(tools) > 5  # Should have many tools, not just container-ops
 
     def test_intent_fallback_disabled_no_matches(self, test_client_with_mock, monkeypatch):
-        """Test behavior when INTENT_FALLBACK_TO_ALL=false and no task types detected."""
+        """
+        Verify that when intent fallback is disabled and no task types are detected, the tools/list response contains an empty tools list, includes a warning indicating no task types were detected and fallback is disabled, and exposes `detected_task_types` as an empty list.
+        """
         from app.core.config import settings
 
         # Monkeypatch settings directly

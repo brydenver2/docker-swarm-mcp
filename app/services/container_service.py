@@ -53,7 +53,23 @@ async def remove_container(docker_client: DockerClient, params: dict[str, Any]) 
 
 @retry_read(operation_name="get_logs")
 async def get_logs(docker_client: DockerClient, params: dict[str, Any]) -> str:
-    """Get Docker container logs"""
+    """
+    Retrieve logs for a Docker container.
+    
+    Parameters:
+        docker_client (DockerClient): Docker client used to fetch logs.
+        params (dict): Options for log retrieval. Recognized keys:
+            - id (str): Container identifier (required).
+            - tail (int): Number of lines from the end of the logs (default 100).
+            - since (int | str | None): Return logs since this timestamp (optional).
+            - follow (bool): Whether to follow the log stream (default False).
+    
+    Returns:
+        str: The requested logs as a string.
+    
+    Raises:
+        ValueError: If the required `id` parameter is missing.
+    """
     container_id = params.get("id")
     tail = params.get("tail", 100)
     since = params.get("since")

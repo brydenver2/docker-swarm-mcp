@@ -25,6 +25,17 @@ class RetryConfig:
             OSError,
         )
     ):
+        """
+        Initialize a RetryConfig with parameters that control retry attempts and backoff behavior.
+        
+        Parameters:
+            max_attempts (int): Maximum number of attempts to try the operation (including the first attempt).
+            base_delay (float): Initial delay in seconds used as the starting backoff interval.
+            max_delay (float): Upper bound in seconds for any computed backoff delay.
+            backoff_factor (float): Multiplier applied to the delay after each failed attempt to produce exponential backoff.
+            jitter (bool): If True, apply randomized jitter to computed delays to avoid synchronized retries.
+            retryable_exceptions (tuple[type[Exception], ...]): Tuple of exception types that should be considered retryable.
+        """
         self.max_attempts = max_attempts
         self.base_delay = base_delay
         self.max_delay = max_delay
@@ -67,20 +78,22 @@ async def retry_with_backoff(
     **kwargs
 ) -> Any:
     """
-    Execute a function with exponential backoff retry logic
-
-    Args:
-        func: Function to execute
-        *args: Function arguments
-        config: Retry configuration
-        operation_name: Name for logging purposes
-        **kwargs: Function keyword arguments
-
+    Retry an awaitable callable using exponential backoff with optional jitter.
+    
+    Executes `func(*args, **kwargs)` up to `config.max_attempts` times, applying delays computed from `config.base_delay`, `config.backoff_factor`, and `config.max_delay`. If `config.jitter` is enabled, delays are randomized to reduce contention. A non-retryable exception raised by `func` is re-raised immediately; retryable exceptions are retried until attempts are exhausted.
+    
+    Parameters:
+        func (Callable): Awaitable callable to execute.
+        *args: Positional arguments passed to `func`.
+        config (RetryConfig): Retry behavior configuration.
+        operation_name (str): Human-readable label used in logs.
+        **kwargs: Keyword arguments passed to `func`.
+    
     Returns:
-        Result of the function execution
-
+        Any: The value returned by `func` on a successful attempt.
+    
     Raises:
-        The last exception if all retries are exhausted
+        Exception: The last retryable exception if all retry attempts are exhausted; any non-retryable exception raised by `func` is propagated immediately.
     """
     last_exception = None
 
@@ -177,11 +190,14 @@ def retry_async(
     operation_name: Optional[str] = None
 ):
     """
-    Decorator for adding retry logic to async functions
-
-    Args:
-        config: Retry configuration
-        operation_name: Optional operation name for logging
+    Create a decorator that applies configured retry-with-backoff behavior to an async function.
+    
+    Parameters:
+        config (RetryConfig): Retry behavior to apply to the wrapped coroutine. Defaults to READ_RETRY_CONFIG.
+        operation_name (Optional[str]): Optional label used for logging; if omitted the wrapper uses "<module>.<function>" derived from the wrapped function.
+    
+    Returns:
+        Callable: A decorator that wraps an async function so calls to it are executed via the retry_with_backoff utility with the provided configuration and operation name.
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -199,7 +215,27 @@ def retry_read(operation_name: Optional[str] = None):
     return retry_async(READ_RETRY_CONFIG, operation_name)
 
 def retry_write(operation_name: Optional[str] = None):
+    """
+    Create a decorator that applies the module's write retry policy to an async function.
+    
+    Parameters:
+        operation_name (Optional[str]): Optional label used for logging and metrics; if omitted, the wrapped function's module and name are used.
+    
+    Returns:
+        Callable: A decorator that wraps an async callable so it is retried according to the write retry configuration. The wrapper preserves the original function's signature and return value.
+    """
     return retry_async(WRITE_RETRY_CONFIG, operation_name)
 
 def retry_none(operation_name: Optional[str] = None):
+    """
+    Create a decorator that applies the no-retry configuration to an async function.
+    
+    The returned decorator wraps an async function so it is executed with a retry policy that performs a single attempt and no delay or jitter.
+    
+    Parameters:
+        operation_name (Optional[str]): Optional explicit name used for logging; if omitted the wrapper derives a name from the function.
+    
+    Returns:
+        Callable: A decorator that wraps an async function to execute it using the no-retry configuration.
+    """
     return retry_async(NO_RETRY_CONFIG, operation_name)
