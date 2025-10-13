@@ -1,4 +1,3 @@
-from importlib import reload
 
 from app.core import constants
 
@@ -41,7 +40,7 @@ def test_initialize_returns_version_constant(test_client_with_mock):
     # Authorization header provided by fixture via TEST_TOKEN
     from tests.conftest import TEST_TOKEN
 
-    resp = test_client_with_mock.post("/mcp/v1", json=payload, headers={"Authorization": f"Bearer {TEST_TOKEN}"})
+    resp = test_client_with_mock.post("/mcp/", json=payload, headers={"Authorization": f"Bearer {TEST_TOKEN}"})
     assert resp.status_code == 200
     body = resp.json()
     assert body["jsonrpc"] == "2.0"

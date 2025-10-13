@@ -15,7 +15,7 @@ async def ping_docker(request: Request) -> PingResponse:
     try:
         docker_client = request.app.state.docker_client
         is_alive = docker_client.ping()
-        
+
         if is_alive:
             return PingResponse(status="ok", message="Docker engine is reachable")
         else:
@@ -36,7 +36,7 @@ async def get_system_info(request: Request) -> SystemInfo:
     try:
         docker_client = request.app.state.docker_client
         info = docker_client.get_info()
-        
+
         return SystemInfo(
             version=APP_VERSION,
             os=info.get("OperatingSystem", "unknown"),

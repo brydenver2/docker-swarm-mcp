@@ -12,15 +12,23 @@ import uuid
 from typing import Any
 
 import jsonschema
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.auth import verify_token_with_scopes
 from app.core.config import settings
-from app.mcp.tool_gating import FilterContext, ToolGateController, Tool
+from app.mcp.tool_gating import FilterContext, Tool, ToolGateController
 from app.mcp.tool_registry import ToolRegistry
-from app.services import container_service, meta_service, network_service, service_service, stack_service, system_service, volume_service
+from app.services import (
+    container_service,
+    meta_service,
+    network_service,
+    service_service,
+    stack_service,
+    system_service,
+    volume_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +46,7 @@ class JSONRPCRequest(BaseModel):
 class JSONRPCResponse(BaseModel):
     """JSON-RPC 2.0 response structure"""
     model_config = ConfigDict(exclude_none=True)
-    
+
     jsonrpc: str = "2.0"
     result: Any | None = None
     error: dict[str, Any] | None = None
@@ -74,7 +82,7 @@ class DynamicToolGatingMCP:
         self.tool_gate_controller = tool_gate_controller
         self.intent_classifier = intent_classifier
         self.service_map = self._build_service_map()
-        
+
         # Session-based tool gating: store last filtered tool set per session
         self.session_tools: dict[str, dict[str, Tool]] = {}
 
@@ -148,7 +156,7 @@ class DynamicToolGatingMCP:
             # Security validation for destructive tools
             tool_name_lower = tool_name.lower()
             is_destructive = any(pattern in tool_name_lower for pattern in destructive_patterns)
-            
+
             if is_destructive and not tool.required_scopes:
                 security_warnings.append(
                     f"Destructive tool '{tool_name}' lacks required_scopes. "
@@ -174,7 +182,7 @@ class DynamicToolGatingMCP:
     ) -> dict[str, Any]:
         """Handle MCP initialize request"""
         from app.core.constants import APP_VERSION
-        
+
         return {
             "protocolVersion": "2024-11-05",
             "capabilities": {
@@ -209,7 +217,7 @@ class DynamicToolGatingMCP:
         # Intent classification
         detected_task_types = None
         classification_method = "none"
-        
+
         if query and self.intent_classifier and settings.INTENT_CLASSIFICATION_ENABLED:
             detected_task_types = self.intent_classifier.classify_intent(query)
             classification_method = "intent"
@@ -241,18 +249,18 @@ class DynamicToolGatingMCP:
 
         # Check for strict no-match behavior
         no_match_strict = (
-            query is not None and 
-            classification_method == "intent" and 
-            detected_task_types is not None and 
-            len(detected_task_types) == 0 and 
+            query is not None and
+            classification_method == "intent" and
+            detected_task_types is not None and
+            len(detected_task_types) == 0 and
             (settings.STRICT_CONTEXT_LIMIT or not settings.INTENT_FALLBACK_TO_ALL)
         )
-        
+
         if no_match_strict:
             # Return empty tool set with warning
             filtered_tools = {}
             filters_applied = []
-            
+
             metadata = {
                 "classification_method": "intent",
                 "query": query,
@@ -260,7 +268,7 @@ class DynamicToolGatingMCP:
                 "warning": "No task types detected from query and fallback disabled",
                 "context_size": 0
             }
-            
+
             logger.info(
                 "Strict no-match mode: returning empty tool set",
                 extra={
@@ -271,7 +279,7 @@ class DynamicToolGatingMCP:
                     "fallback_disabled": not settings.INTENT_FALLBACK_TO_ALL
                 }
             )
-            
+
             return {
                 "tools": [],
                 "_metadata": metadata
@@ -299,7 +307,7 @@ class DynamicToolGatingMCP:
             # Add scope filtering to applied filters if it changed the tool set
             if len(filtered_tools) < len(self.tool_gate_controller.all_tools):
                 filters_applied.append("ScopeFilter")
-        
+
         # Store filtered tools for this session (for tools/call validation)
         self.session_tools[session_id] = filtered_tools.copy()
 
@@ -327,15 +335,15 @@ class DynamicToolGatingMCP:
             "filters_applied": filters_applied,
             "classification_method": classification_method
         }
-        
+
         if query:
             metadata["query"] = query
             # Always include detected_task_types when query is present, even if empty
             metadata["detected_task_types"] = detected_task_types or []
-            
+
             # Add warning if classification returned no matches and fallback is disabled
-            if (detected_task_types is not None and 
-                len(detected_task_types) == 0 and 
+            if (detected_task_types is not None and
+                len(detected_task_types) == 0 and
                 (settings.STRICT_CONTEXT_LIMIT or not settings.INTENT_FALLBACK_TO_ALL)):
                 metadata["warning"] = "No task types detected from query and fallback disabled"
 
@@ -413,7 +421,7 @@ class DynamicToolGatingMCP:
             )
 
         prompt_name = params["name"]
-        
+
         logger.info(
             f"prompts/get request: {prompt_name}",
             extra={
@@ -429,25 +437,25 @@ class DynamicToolGatingMCP:
             task_type_allowlists = self.tool_gate_controller.config.task_type_allowlists
             max_tools = getattr(self.tool_gate_controller.config, "max_tools", 10)
             total_tools = len(self.tool_registry.get_all_tools())
-            
+
             if not task_type_allowlists:
                 # Edge case: no config available - derive from registry
                 all_tools = self.tool_registry.get_all_tools()
                 task_type_groups = {}
-                
+
                 for tool_name, tool in all_tools.items():
                     for task_type in tool.task_types:
                         if task_type not in task_type_groups:
                             task_type_groups[task_type] = []
                         task_type_groups[task_type].append(tool_name)
-                
+
                 total_task_types = len(task_type_groups)
                 task_type_source = task_type_groups
             else:
                 # Normal case: use config
                 total_task_types = len(task_type_allowlists)
                 task_type_source = task_type_allowlists
-            
+
             # Build task_types_text with truncation for token efficiency
             task_type_lines = []
             for task_type, tool_names in sorted(task_type_source.items()):
@@ -458,9 +466,9 @@ class DynamicToolGatingMCP:
                 else:
                     tools_str = ", ".join(sorted_tools)
                 task_type_lines.append(f"- {task_type}: {tool_count} tools (e.g., {tools_str})")
-            
+
             task_types_text = "\n".join(task_type_lines)
-            
+
             # Compose concise message
             message_text = (
                 f"This server exposes {total_tools} Docker tools organized into {total_task_types} task types. "
@@ -468,7 +476,7 @@ class DynamicToolGatingMCP:
                 f"Available task types:\n{task_types_text}\n\n"
                 'Example: {"method": "tools/list", "params": {"task_type": "container-ops"}}'
             )
-            
+
             return JSONRPCResponse(
                 id=jsonrpc_id,
                 result={
@@ -487,18 +495,18 @@ class DynamicToolGatingMCP:
         elif prompt_name == "list-task-types":
             # Dynamically generate from config with edge case guard
             task_type_allowlists = self.tool_gate_controller.config.task_type_allowlists
-            
+
             if not task_type_allowlists:
                 # Edge case: no config available - enumerate all tools from registry grouped by task_types
                 all_tools = self.tool_registry.get_all_tools()
                 task_type_groups = {}
-                
+
                 for tool_name, tool in all_tools.items():
                     for task_type in tool.task_types:
                         if task_type not in task_type_groups:
                             task_type_groups[task_type] = []
                         task_type_groups[task_type].append(tool_name)
-                
+
                 task_types_info = []
                 for task_type, tool_names in sorted(task_type_groups.items()):
                     tool_count = len(tool_names)
@@ -509,7 +517,7 @@ class DynamicToolGatingMCP:
                     else:
                         tools_str = ", ".join(sorted(tool_names))
                     task_types_info.append(f"Task Type: {task_type} ({tool_count} tools)\nTools: {tools_str}")
-                
+
                 content_text = "No task type configuration found. Showing all tools from registry grouped by task types:\n\n" + "\n\n".join(task_types_info)
                 content_text += "\n\nNote: Use tools/list for complete details on all available tools."
             else:
@@ -524,10 +532,10 @@ class DynamicToolGatingMCP:
                     else:
                         tools_str = ", ".join(tool_names)
                     task_types_info.append(f"Task Type: {task_type} ({tool_count} tools)\nTools: {tools_str}")
-                
+
                 content_text = "\n\n".join(task_types_info)
                 content_text += "\n\nNote: Use tools/list for complete details on all available tools."
-            
+
             return JSONRPCResponse(
                 id=jsonrpc_id,
                 result={
@@ -602,7 +610,7 @@ class DynamicToolGatingMCP:
 
         # Get session-specific filtered tools (from last tools/list call)
         session_filtered_tools = self.session_tools.get(session_id, {})
-        
+
         # Fallback to all tools if no session tools found (backward compatibility)
         if not session_filtered_tools:
             logger.warning(
@@ -687,7 +695,7 @@ class DynamicToolGatingMCP:
             timeout = settings.MCP_TIMEOUT_DELETE_OPS
         else:
             timeout = settings.MCP_TIMEOUT_WRITE_OPS
-        
+
         # Execute service function with timeout
         try:
             result = await asyncio.wait_for(
@@ -779,20 +787,20 @@ class DynamicToolGatingMCP:
 def _serialize_jsonrpc_response(response: JSONRPCResponse) -> JSONResponse:
     """Serialize JSON-RPC response excluding None values per JSON-RPC 2.0 spec"""
     response_dict = {"jsonrpc": response.jsonrpc}
-    
+
     # Only include result OR error, not both (JSON-RPC 2.0 spec)
     if response.error is not None:
         response_dict["error"] = response.error
     else:
         response_dict["result"] = response.result
-    
+
     # Always include id (can be None for notifications)
     response_dict["id"] = response.id
-    
+
     return JSONResponse(content=response_dict)
 
 
-@router.post("/", dependencies=[Depends(verify_token_with_scopes)])
+@router.post("/")
 async def mcp_endpoint(
     request: Request,
     jsonrpc_request: JSONRPCRequest,
@@ -806,7 +814,7 @@ async def mcp_endpoint(
     - initialize
     - tools/list (with task_type parameter and gating)
     - tools/call (with gating enforcement and schema validation)
-    
+
     All errors are returned as JSON-RPC error responses with HTTP 200 status
     (except authentication errors which return 401/403).
     """
@@ -815,7 +823,7 @@ async def mcp_endpoint(
 
     # Handle notification requests (no id field)
     is_notification = jsonrpc_request.id is None
-    
+
     # Enhanced logging with session context (avoid logging raw params)
     logger.info(
         f"MCP JSON-RPC request: {jsonrpc_request.method}{' (notification)' if is_notification else ''}",
@@ -827,13 +835,13 @@ async def mcp_endpoint(
             "is_notification": is_notification
         }
     )
-    
+
     # Debug logging with redacted params (only in DEBUG mode)
     if settings.DEBUG and jsonrpc_request.params:
         from app.core.logging import redact_secrets
         redacted_params = redact_secrets(jsonrpc_request.params.copy())
         logger.debug(
-            f"MCP request params (redacted)",
+            "MCP request params (redacted)",
             extra={
                 "request_id": request_id,
                 "session_id": session_id,
@@ -864,7 +872,7 @@ async def mcp_endpoint(
             # Return empty response for notifications
             from fastapi import Response
             return Response(content="", media_type="application/json")
-            
+
         if jsonrpc_request.method == "initialize":
             result = await mcp_server.handle_initialize(
                 jsonrpc_request.params,
@@ -874,7 +882,7 @@ async def mcp_endpoint(
             return _serialize_jsonrpc_response(
                 JSONRPCResponse(id=jsonrpc_request.id, result=result)
             )
-            
+
         elif jsonrpc_request.method == "tools/list":
             result = await mcp_server.handle_tools_list(
                 jsonrpc_request.params,
@@ -886,7 +894,7 @@ async def mcp_endpoint(
             return _serialize_jsonrpc_response(
                 JSONRPCResponse(id=jsonrpc_request.id, result=result)
             )
-            
+
         elif jsonrpc_request.method == "tools/call":
             response = await mcp_server.handle_tools_call(
                 jsonrpc_request.params,
@@ -898,7 +906,7 @@ async def mcp_endpoint(
             )
             # handle_tools_call now returns JSONRPCResponse directly
             return _serialize_jsonrpc_response(response)
-            
+
         elif jsonrpc_request.method == "prompts/list":
             result = await mcp_server.handle_prompts_list(
                 jsonrpc_request.params,
@@ -908,7 +916,7 @@ async def mcp_endpoint(
             return _serialize_jsonrpc_response(
                 JSONRPCResponse(id=jsonrpc_request.id, result=result)
             )
-            
+
         elif jsonrpc_request.method == "prompts/get":
             response = await mcp_server.handle_prompts_get(
                 jsonrpc_request.params,
@@ -918,7 +926,7 @@ async def mcp_endpoint(
             )
             # handle_prompts_get now returns JSONRPCResponse directly
             return _serialize_jsonrpc_response(response)
-            
+
         else:
             logger.warning(
                 f"Unknown JSON-RPC method: {jsonrpc_request.method}",
@@ -936,7 +944,7 @@ async def mcp_endpoint(
 
     except Exception as e:
         logger.error(
-            f"Unexpected error in MCP handler",
+            "Unexpected error in MCP handler",
             extra={"request_id": request_id, "session_id": session_id},
             exc_info=True
         )

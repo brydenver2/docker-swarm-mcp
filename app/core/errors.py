@@ -14,7 +14,7 @@ async def docker_not_found_handler(request: Request, exc: NotFound) -> JSONRespo
 
 async def docker_api_error_handler(request: Request, exc: APIError) -> JSONResponse:
     status_code = exc.response.status_code if hasattr(exc, 'response') else 424
-    
+
     if status_code == 400:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,

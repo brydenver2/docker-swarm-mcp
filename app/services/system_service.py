@@ -2,7 +2,6 @@
 from typing import Any
 
 from app.core.constants import APP_VERSION
-
 from app.docker_client import DockerClient
 from app.utils.retry import retry_read
 
@@ -11,7 +10,7 @@ from app.utils.retry import retry_read
 async def ping(docker_client: DockerClient, params: dict[str, Any]) -> dict[str, Any]:
     """Ping Docker engine to verify connectivity"""
     is_alive = docker_client.ping()
-    
+
     if is_alive:
         return {"status": "ok", "message": "Docker engine is reachable"}
     else:
@@ -22,7 +21,7 @@ async def ping(docker_client: DockerClient, params: dict[str, Any]) -> dict[str,
 async def info(docker_client: DockerClient, params: dict[str, Any]) -> dict[str, Any]:
     """Get Docker system information"""
     docker_info = docker_client.get_info()
-    
+
     return {
         "version": APP_VERSION,
         "os": docker_info.get("OperatingSystem", "unknown"),

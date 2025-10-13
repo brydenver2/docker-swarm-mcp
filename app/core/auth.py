@@ -1,7 +1,6 @@
 import hmac
 import json
 import logging
-from typing import Any
 
 from fastapi import HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -15,34 +14,40 @@ logger = logging.getLogger(__name__)
 class HTTPBearerOrQuery(HTTPBearer):
     """
     Custom security class that accepts Bearer tokens from Authorization header
-    OR accessToken query parameter for simpler client configuration.
-    
+    OR X-Access-Token header for simpler client configuration.
+
     Priority:
     1. Authorization header (standard, takes precedence)
-    2. accessToken query parameter (fallback for simpler configs)
+    2. X-Access-Token header (fallback for simpler configs)
+
+    Note:
+        Query parameter authentication has been removed for security reasons
+        (tokens should never appear in URLs).
+
+    TODO: Legacy class name HTTPBearerOrQuery is retained for backward compatibility.
+          The class no longer accepts query parameters and only accepts header-based
+          authentication (Authorization header or X-Access-Token header).
+          Consider renaming to HTTPBearerOrHeader in a future breaking change.
     """
-    
+
     async def __call__(self, request: Request) -> HTTPAuthorizationCredentials:
         # Try Authorization header first (standard behavior)
         authorization = request.headers.get("Authorization")
         scheme, credentials = get_authorization_scheme_param(authorization)
-        
+
         if scheme and scheme.lower() == "bearer" and credentials:
             return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
-        
-        # Fallback to query parameter
-        access_token = (
-            request.query_params.get("accessToken") or 
-            request.query_params.get("access_token")
-        )
-        
+
+        # Fallback to custom header for clients that cannot set Authorization
+        access_token = request.headers.get("X-Access-Token")
+
         if access_token:
             logger.debug(
-                "Token extracted from query parameter",
-                extra={"query_param": "accessToken"}
+                "Token extracted from X-Access-Token header",
+                extra={"header": "X-Access-Token"}
             )
             return HTTPAuthorizationCredentials(scheme="Bearer", credentials=access_token)
-        
+
         # No valid token found
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -99,7 +104,7 @@ async def verify_token_with_scopes(
             if token in token_scopes_mapping:
                 scopes = set(token_scopes_mapping[token])
                 logger.debug(
-                    f"Token verified with scopes from TOKEN_SCOPES mapping",
+                    "Token verified with scopes from TOKEN_SCOPES mapping",
                     extra={"scopes": list(scopes)}
                 )
                 return scopes

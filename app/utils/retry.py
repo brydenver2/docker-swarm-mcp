@@ -3,8 +3,9 @@
 import asyncio
 import logging
 import random
-from typing import Any, Callable, Optional, Type, Union
+from collections.abc import Callable
 from functools import wraps
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class RetryConfig:
         max_delay: float = 2.0,
         backoff_factor: float = 2.0,
         jitter: bool = True,
-        retryable_exceptions: tuple[Type[Exception], ...] = (
+        retryable_exceptions: tuple[type[Exception], ...] = (
             ConnectionError,
             TimeoutError,
             OSError,
@@ -67,22 +68,22 @@ async def retry_with_backoff(
 ) -> Any:
     """
     Execute a function with exponential backoff retry logic
-    
+
     Args:
         func: Function to execute
         *args: Function arguments
         config: Retry configuration
         operation_name: Name for logging purposes
         **kwargs: Function keyword arguments
-        
+
     Returns:
         Result of the function execution
-        
+
     Raises:
         The last exception if all retries are exhausted
     """
     last_exception = None
-    
+
     for attempt in range(config.max_attempts):
         try:
             if attempt > 0:
@@ -90,12 +91,12 @@ async def retry_with_backoff(
                     config.base_delay * (config.backoff_factor ** (attempt - 1)),
                     config.max_delay
                 )
-                
+
                 if config.jitter:
                     # Add ±25% jitter to avoid thundering herd
                     jitter_factor = 0.75 + (random.random() * 0.5)
                     delay *= jitter_factor
-                
+
                 logger.debug(
                     f"Retrying {operation_name} (attempt {attempt + 1}/{config.max_attempts}) "
                     f"after {delay:.2f}s delay",
@@ -107,11 +108,11 @@ async def retry_with_backoff(
                         "retry": True
                     }
                 )
-                
+
                 await asyncio.sleep(delay)
-            
+
             result = await func(*args, **kwargs)
-            
+
             if attempt > 0:
                 logger.info(
                     f"{operation_name} succeeded on attempt {attempt + 1}",
@@ -121,9 +122,9 @@ async def retry_with_backoff(
                         "retry": True
                     }
                 )
-            
+
             return result
-            
+
         except config.retryable_exceptions as e:
             last_exception = e
             logger.warning(
@@ -137,11 +138,11 @@ async def retry_with_backoff(
                     "error": str(e)
                 }
             )
-            
+
             # If this is the last attempt, don't sleep again
             if attempt == config.max_attempts - 1:
                 break
-                
+
         except Exception as e:
             # Non-retryable exception, fail immediately
             logger.error(
@@ -155,7 +156,7 @@ async def retry_with_backoff(
                 }
             )
             raise
-    
+
     # All retries exhausted
     logger.error(
         f"{operation_name} failed after {config.max_attempts} attempts",
@@ -167,7 +168,7 @@ async def retry_with_backoff(
             "error": str(last_exception) if last_exception else "No error recorded"
         }
     )
-    
+
     raise last_exception
 
 
@@ -177,7 +178,7 @@ def retry_async(
 ):
     """
     Decorator for adding retry logic to async functions
-    
+
     Args:
         config: Retry configuration
         operation_name: Optional operation name for logging

@@ -12,7 +12,7 @@ The MCP JSON-RPC endpoint provides a standards-compliant interface for:
 - Session tracking and observability
 - Scope-based authorization
 
-**Endpoint**: `POST /mcp/v1/` (note the trailing slash)
+**Endpoint**: `POST /mcp/` (note the trailing slash)
 
 ## JSON-RPC Protocol
 
@@ -29,7 +29,7 @@ All requests and responses follow the **JSON-RPC 2.0 specification** ([spec](htt
 
 **Important**: 
 - ✅ The server strictly follows JSON-RPC 2.0: responses contain either `result` OR `error`, never both
-- ✅ The trailing slash in `/mcp/v1/` is required for proper routing
+- ✅ The trailing slash in `/mcp/` is required for proper routing
 - ⚠️ Notifications (requests without `id` field) are supported but return HTTP 200 with empty body per specification
 - ⚠️ Batch requests are not currently supported
 
@@ -90,7 +90,7 @@ Handshake to establish MCP protocol version and capabilities.
     "protocolVersion": "2024-11-05",
     "serverInfo": {
       "name": "docker-swarm-mcp",
-      "version": "0.2.0"
+      "version": "0.4.0"
     },
     "capabilities": {
       "tools": {
@@ -295,10 +295,16 @@ Retrieve a specific prompt template with instructions.
 
 ## Authentication
 
-All requests require Bearer token authentication:
+All requests require tokens to be sent via HTTP headers. Two header formats are supported:
+
+- **Standard (recommended):** `Authorization: Bearer <token>`
+- **Simple alternative:** `X-Access-Token: <token>` (for clients that cannot set Bearer headers)
+
+If both headers are present, the Authorization header takes precedence. Query parameter authentication is **not** supported for security reasons (tokens in URLs are logged by servers, proxies, and browsers).
 
 ```bash
-curl -X POST http://localhost:8000/mcp/v1 \
+# Authorization header (recommended)
+curl -X POST http://localhost:8000/mcp/ \
   -H "Authorization: Bearer your-token-here" \
   -H "Content-Type: application/json" \
   -d '{
@@ -307,7 +313,25 @@ curl -X POST http://localhost:8000/mcp/v1 \
     "params": {},
     "id": 1
   }'
+
+# X-Access-Token header (simple alternative)
+curl -X POST http://localhost:8000/mcp/ \
+  -H "X-Access-Token: your-token-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/list",
+    "params": {},
+    "id": 1
+  }'
 ```
+
+### Security Considerations
+
+- Tokens are accepted **only** via headers to prevent accidental leakage through URLs, browser history, and referrer headers.
+- Web server and reverse-proxy access logs typically include URLs but not headers, making header-based authentication significantly safer.
+- Application logging filters redact both `Authorization` and `X-Access-Token` headers to keep credentials out of structured logs.
+- See [SECURITY.md](../SECURITY.md) for a deeper dive into authentication hardening and token management best practices.
 
 ### Scope-Based Authorization
 
@@ -344,7 +368,7 @@ tools:
 Include `X-Session-ID` header for session correlation:
 
 ```bash
-curl -X POST http://localhost:8000/mcp/v1 \
+curl -X POST http://localhost:8000/mcp/ \
   -H "Authorization: Bearer your-token" \
   -H "X-Session-ID: session-abc123" \
   -H "Content-Type: application/json" \
@@ -417,7 +441,7 @@ The server provides special meta-tools that return instructional content through
 
 ```bash
 # Discover meta-tools
-curl -X POST http://localhost:8000/mcp/v1 \
+curl -X POST http://localhost:8000/mcp/ \
   -H "Authorization: Bearer your-token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -428,7 +452,7 @@ curl -X POST http://localhost:8000/mcp/v1 \
   }'
 
 # Get tool discovery guidance
-curl -X POST http://localhost:8000/mcp/v1 \
+curl -X POST http://localhost:8000/mcp/ \
   -H "Authorization: Bearer your-token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -460,7 +484,7 @@ The server also provides instructional prompts for clients that support the prom
 
 ```bash
 # List available prompts
-curl -X POST http://localhost:8000/mcp/v1 \
+curl -X POST http://localhost:8000/mcp/ \
   -H "Authorization: Bearer your-token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -471,7 +495,7 @@ curl -X POST http://localhost:8000/mcp/v1 \
   }'
 
 # Get specific prompt guidance
-curl -X POST http://localhost:8000/mcp/v1 \
+curl -X POST http://localhost:8000/mcp/ \
   -H "Authorization: Bearer your-token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -598,7 +622,7 @@ class MCPClient:
         })
 
 # Usage
-client = MCPClient("http://localhost:8000/mcp/v1", "your-token")
+client = MCPClient("http://localhost:8000/mcp/", "your-token")
 client.initialize()
 tools = client.list_tools(task_type="container-ops")
 result = client.call_tool("list-containers", {"all": True})
@@ -657,7 +681,7 @@ class MCPClient {
 }
 
 // Usage
-const client = new MCPClient('http://localhost:8000/mcp/v1', 'your-token');
+const client = new MCPClient('http://localhost:8000/mcp/', 'your-token');
 await client.initialize();
 const tools = await client.listTools('container-ops');
 const result = await client.callTool('list-containers', { all: true });
@@ -685,19 +709,20 @@ All MCP requests generate structured logs:
 
 Use `X-Session-ID` header for cross-request correlation. Session IDs appear in all log entries for that session.
 
-## Migration from REST API
+## Migration from Deprecated Endpoints
 
-### Before (REST)
+### Before (Deprecated REST-style endpoints - v0.4.x and earlier)
 
 ```bash
+# These endpoints no longer exist
 curl -H "Authorization: Bearer token" \
   http://localhost:8000/mcp/tools?task-type=container-ops
 ```
 
-### After (JSON-RPC)
+### After (JSON-RPC - v0.5.0+)
 
 ```bash
-curl -X POST http://localhost:8000/mcp/v1 \
+curl -s -X POST http://localhost:8000/mcp/ \
   -H "Authorization: Bearer token" \
   -H "Content-Type: application/json" \
   -d '{
@@ -708,17 +733,19 @@ curl -X POST http://localhost:8000/mcp/v1 \
   }'
 ```
 
-### Feature Parity
+### Feature Comparison
 
-| Feature | REST `/mcp/tools` | JSON-RPC `/mcp/v1` |
+| Feature | Deprecated REST (removed) | JSON-RPC `/mcp/` |
 |---------|-------------------|---------------------|
-| Tool discovery | ✅ | ✅ |
-| Task-type filtering | ✅ | ✅ |
+| Tool discovery | ✅ (removed in v0.5.0) | ✅ |
+| Task-type filtering | ✅ (removed in v0.5.0) | ✅ |
 | Tool execution | ❌ | ✅ |
 | Schema validation | ❌ | ✅ |
 | Session tracking | ❌ | ✅ |
 | Scope-based auth | ❌ | ✅ |
 | Error codes | ❌ | ✅ |
+
+> **Note**: The REST-style `/mcp/tools` and `/mcp/prompts` endpoints were removed in v0.5.0. The optional REST API under `/api/*` (controlled by `ENABLE_REST_API`) remains available for Docker operations.
 
 ## Best Practices
 

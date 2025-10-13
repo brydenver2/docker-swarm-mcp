@@ -14,7 +14,7 @@ async def health_check(request: Request) -> dict[str, str | bool | int]:
         docker_reachable = docker_client.ping()
     except Exception:
         docker_reachable = False
-    
+
     return {
         "status": "healthy" if docker_reachable else "degraded",
         "docker_reachable": docker_reachable,
@@ -26,7 +26,7 @@ async def health_check(request: Request) -> dict[str, str | bool | int]:
 async def detailed_health_check(request: Request) -> dict[str, str | bool | int]:
     """
     Detailed health check endpoint that reflects MCP readiness
-    
+
     Returns comprehensive health status including:
     - MCP server readiness
     - Tool availability
@@ -38,12 +38,12 @@ async def detailed_health_check(request: Request) -> dict[str, str | bool | int]
         docker_reachable = docker_client.ping()
     except Exception:
         docker_reachable = False
-    
+
     # Check MCP server components
     mcp_ready = True
     tool_count = 0
     auth_configured = False
-    
+
     try:
         # Check if MCP server is initialized
         if hasattr(request.app.state, 'mcp_server'):
@@ -54,14 +54,14 @@ async def detailed_health_check(request: Request) -> dict[str, str | bool | int]
                 mcp_ready = False
         else:
             mcp_ready = False
-            
+
         # Check authentication configuration
         if settings.MCP_ACCESS_TOKEN or settings.TOKEN_SCOPES:
             auth_configured = True
-            
+
     except Exception:
         mcp_ready = False
-    
+
     # Overall status determination
     if docker_reachable and mcp_ready and auth_configured and tool_count > 0:
         status = "healthy"
@@ -69,7 +69,7 @@ async def detailed_health_check(request: Request) -> dict[str, str | bool | int]
         status = "degraded"  # Missing auth or tools
     else:
         status = "unhealthy"
-    
+
     return {
         "status": status,
         "mcp_ready": mcp_ready,

@@ -2,7 +2,7 @@
 from typing import Any
 
 from app.docker_client import DockerClient
-from app.utils.retry import retry_read, retry_write, retry_none
+from app.utils.retry import retry_read, retry_write
 
 
 @retry_read(operation_name="list_containers")
@@ -60,7 +60,7 @@ async def get_logs(docker_client: DockerClient, params: dict[str, Any]) -> str:
     follow = params.get("follow", False)
     if not container_id:
         raise ValueError("Missing required parameter: id")
-    
+
     # Only retry if not following (following is not idempotent)
     if follow:
         return docker_client.get_logs(container_id, tail=tail, since=since, follow=follow)

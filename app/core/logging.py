@@ -20,6 +20,9 @@ class SensitiveDataFilter(logging.Filter):
                 # Drop Authorization header entirely
                 headers.pop("authorization", None)
                 headers.pop("Authorization", None)
+                # Drop custom access token header variants
+                headers.pop("X-Access-Token", None)
+                headers.pop("x-access-token", None)
                 record.headers = headers
 
         if hasattr(record, "cookies"):
@@ -83,7 +86,8 @@ def redact_secrets(data: dict[str, Any]) -> dict[str, Any]:
     sensitive_keys = {
         "token", "password", "secret", "api_key", "authorization",
         "bearer", "credentials", "auth", "access_token", "refresh_token",
-        "accesstoken"  # Handle camelCase query parameter
+        "accesstoken",  # Handle camelCase query parameter (legacy)
+        "x-access-token"  # Ensure custom header is always redacted
     }
 
     redacted = {}

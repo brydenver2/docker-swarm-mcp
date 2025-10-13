@@ -13,6 +13,24 @@ poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000
 curl http://localhost:8000/mcp/health
 ```
 
+## Authentication
+
+> v0.5.0+: Tokens are accepted only via headers. Query parameter authentication (`?accessToken=...`) has been removed for security reasons.
+
+```bash
+# Authorization header (recommended) - JSON-RPC
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer $MCP_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
+
+# X-Access-Token header (simple alternative) - JSON-RPC
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "X-Access-Token: $MCP_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
+```
+
 ## Client Configuration
 
 ### Claude Desktop
@@ -25,7 +43,7 @@ curl http://localhost:8000/mcp/health
     "docker": {
       "transport": {
         "type": "http",
-        "url": "http://localhost:8000/mcp/v1/",
+        "url": "http://localhost:8000/mcp/",
         "headers": {
           "Authorization": "Bearer your-token-here"
         }
@@ -41,7 +59,7 @@ curl http://localhost:8000/mcp/health
 # Add server
 claude-code mcp add docker \
   --transport http \
-  --url http://localhost:8000/mcp/v1/ \
+  --url http://localhost:8000/mcp/ \
   --header "Authorization: Bearer your-token-here"
 ```
 
@@ -54,7 +72,7 @@ claude-code mcp add docker \
   "mcpServers": {
     "docker": {
       "type": "streamable-http",
-      "url": "http://localhost:8000/mcp/v1/",
+      "url": "http://localhost:8000/mcp/",
       "headers": {
         "Authorization": "Bearer your-token-here"
       },
@@ -85,65 +103,68 @@ claude-code mcp add docker \
 
 ## API Endpoints
 
+> Set `ENABLE_REST_API=true` to expose these `/api/*` routes. MCP JSON-RPC remains available at `/mcp/`.
+
 ### Discovery & Health
 
 ```bash
 # Health check (no auth)
 GET /mcp/health
 
-# Tool discovery
-GET /mcp/tools
-GET /mcp/tools?task-type=container-ops
+# Tool discovery (JSON-RPC)
+POST /mcp/
+# Body: {"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}
+# With filtering: {"jsonrpc":"2.0","id":"1","method":"tools/list","params":{"task_type":"container-ops"}}
 ```
 
 ### Containers
 
 ```bash
-GET    /containers                    # List containers
-POST   /containers                    # Create container
-POST   /containers/{id}/start         # Start container
-POST   /containers/{id}/stop          # Stop container
-DELETE /containers/{id}               # Remove container
-GET    /containers/{id}/logs          # Get logs
+GET    /api/containers                    # List containers
+POST   /api/containers                    # Create container
+POST   /api/containers/{id}/start         # Start container
+POST   /api/containers/{id}/stop          # Stop container
+DELETE /api/containers/{id}               # Remove container
+GET    /api/containers/{id}/logs          # Get logs
 ```
 
 ### Stacks (Compose)
 
 ```bash
-POST   /stacks/deploy                 # Deploy stack
-GET    /stacks                        # List stacks
-DELETE /stacks/{project_name}         # Remove stack
+POST   /api/stacks/deploy                 # Deploy stack
+GET    /api/stacks                        # List stacks
+DELETE /api/stacks/{project_name}         # Remove stack
 ```
 
 ### Services (Swarm)
 
 ```bash
-GET    /services                      # List services
-POST   /services/{name}/scale         # Scale service
-DELETE /services/{name}               # Remove service
+GET    /api/services                      # List services
+POST   /api/services/{name}/scale         # Scale service
+DELETE /api/services/{name}               # Remove service
 ```
 
 ### Networks
 
 ```bash
-GET    /networks                      # List networks
-POST   /networks                      # Create network
-DELETE /networks/{id}                 # Remove network
+GET    /api/networks                      # List networks
+POST   /api/networks                      # Create network
+DELETE /api/networks/{id}                 # Remove network
 ```
 
 ### Volumes
 
 ```bash
-GET    /volumes                       # List volumes
-POST   /volumes                       # Create volume
-DELETE /volumes/{name}                # Remove volume
+GET    /api/volumes                       # List volumes
+POST   /api/volumes                       # Create volume
+DELETE /api/volumes/{name}                # Remove volume
 ```
 
 ### System
 
 ```bash
-GET    /system/ping                   # Ping Docker
-GET    /system/info                   # System info
+GET    /api/system/ping                   # Ping Docker
+GET    /api/system/info                   # System info
 ```
 
 ## cURL Examples
@@ -151,28 +172,31 @@ GET    /system/info                   # System info
 ```bash
 # Set token
 TOKEN="your-token-here"
+# Replace Authorization headers with `X-Access-Token: $TOKEN` if your client prefers the custom header
 
-# Tool discovery
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8000/mcp/tools
+# Tool discovery (JSON-RPC)
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
 
 # List containers
 curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/containers?all=true"
+  "http://localhost:8000/api/containers?all=true"
 
 # Create container
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"image":"nginx:alpine","name":"web","ports":{"80/tcp":8080}}' \
-  http://localhost:8000/containers
+  http://localhost:8000/api/containers
 
 # Deploy stack
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"project_name":"demo","compose_yaml":"version: \"3.8\"\nservices:\n  web:\n    image: nginx:alpine\n"}' \
-  http://localhost:8000/stacks/deploy
+  http://localhost:8000/api/stacks/deploy
 ```
 
 ## Remote Access
@@ -191,7 +215,7 @@ tailscale ip -4  # e.g., 100.101.102.103
   "mcpServers": {
     "docker-remote": {
       "transport": "http",
-      "url": "http://100.101.102.103:8000/mcp/v1/",
+      "url": "http://100.101.102.103:8000/mcp/",
       "headers": {
         "Authorization": "Bearer your-token-here"
       }
@@ -211,7 +235,7 @@ ngrok http 8000
   "mcpServers": {
     "docker-remote": {
       "transport": "http",
-      "url": "https://abc123.ngrok.io/mcp/v1/",
+      "url": "https://abc123.ngrok.io/mcp/",
       "headers": {
         "Authorization": "Bearer your-token-here"
       }
@@ -255,14 +279,18 @@ ALLOWED_ORIGINS="*"
 # Check server health
 curl http://localhost:8000/mcp/health
 
-# Test authentication
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8000/mcp/tools
+# Test authentication (JSON-RPC)
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
 
 # Check context size (requires LOG_LEVEL=DEBUG)
 export LOG_LEVEL="DEBUG"
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8000/mcp/tools | jq '.context_size'
+curl -s -X POST http://localhost:8000/mcp/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}' | jq '.result._metadata.context_size'
 
 # View server logs
 docker logs mcp-server
@@ -336,7 +364,7 @@ docs/dependencies/             # Dependency reference stubs
 
 ## Version Info
 
-- **Server Version**: 0.2.0
+- **Server Version**: 0.4.0
 - **Python**: 3.12+
 - **Docker Engine**: 24+
 - **MCP Protocol**: HTTP/SSE transport

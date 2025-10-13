@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Annotated
 
+from fastapi import APIRouter, Depends, status
+
 from app.core.auth import verify_token
-from app.docker_client import get_docker_client, DockerClient
-from app.schemas.services import ServiceScaleRequest, ServiceResponse
+from app.docker_client import DockerClient, get_docker_client
+from app.schemas.services import ServiceResponse, ServiceScaleRequest
 
 router = APIRouter(prefix="/services", tags=["services"])
 

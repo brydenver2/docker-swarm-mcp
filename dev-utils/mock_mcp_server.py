@@ -7,13 +7,11 @@ Creates a mock environment to test MCP JSON-RPC endpoints
 import json
 import logging
 import os
-import sys
 import time
 import uuid
-from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Dict
+from typing import Any
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -75,7 +73,7 @@ MOCK_CONTAINERS = [
     },
     {
         "id": "def456",
-        "name": "test-container-2", 
+        "name": "test-container-2",
         "status": "stopped",
         "image": "redis:alpine",
         "created": "2025-01-01T01:00:00Z"
@@ -84,12 +82,12 @@ MOCK_CONTAINERS = [
 
 class MockMCPServer:
     """Mock MCP server for testing"""
-    
+
     def __init__(self):
         self.tools = MOCK_TOOLS
         self.containers = MOCK_CONTAINERS
-    
-    def handle_initialize(self, params: Dict[str, Any]) -> Dict[str, Any]:
+
+    def handle_initialize(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle initialize request"""
         return {
             "protocolVersion": "2024-11-05",
@@ -103,16 +101,16 @@ class MockMCPServer:
                 "version": "0.1.0"
             }
         }
-    
-    def handle_tools_list(self, params: Dict[str, Any] = None) -> Dict[str, Any]:
+
+    def handle_tools_list(self, params: dict[str, Any] = None) -> dict[str, Any]:
         """Handle tools/list request"""
         return {"tools": self.tools}
-    
-    def handle_tools_call(self, params: Dict[str, Any]) -> Dict[str, Any]:
+
+    def handle_tools_call(self, params: dict[str, Any]) -> dict[str, Any]:
         """Handle tools/call request"""
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
-        
+
         if tool_name == "list_containers":
             return {
                 "content": [
@@ -125,7 +123,7 @@ class MockMCPServer:
         elif tool_name == "create_container":
             image = arguments.get("image", "scratch")
             name = arguments.get("name", f"container-{uuid.uuid4().hex[:8]}")
-            
+
             new_container = {
                 "id": f"new-{uuid.uuid4().hex[:8]}",
                 "name": name,
@@ -133,11 +131,11 @@ class MockMCPServer:
                 "image": image,
                 "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             }
-            
+
             return {
                 "content": [
                     {
-                        "type": "text", 
+                        "type": "text",
                         "text": f"Created container: {json.dumps(new_container, indent=2)}"
                     }
                 ]
@@ -179,7 +177,7 @@ def validate_token(request: Request) -> bool:
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         return False
-    
+
     token = auth_header[7:]  # Remove "Bearer " prefix
     expected_token = os.environ.get('MCP_ACCESS_TOKEN')
     return token == expected_token
@@ -193,7 +191,7 @@ async def auth_middleware(request: Request, call_next):
                 status_code=401,
                 content={"error": "Unauthorized", "message": "Invalid or missing token"}
             )
-    
+
     response = await call_next(request)
     return response
 
@@ -202,29 +200,29 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": time.time()}
 
-@app.post("/mcp/v1")
+@app.post("/mcp/")
 async def mcp_endpoint(request: Request):
     """Main MCP JSON-RPC endpoint"""
     try:
         body = await request.json()
-        
+
         # Validate JSON-RPC format
         if not isinstance(body, dict):
             raise ValueError("Invalid JSON-RPC request: must be object")
-        
+
         jsonrpc_version = body.get("jsonrpc")
         if jsonrpc_version != "2.0":
             raise ValueError("Invalid JSON-RPC version: must be '2.0'")
-        
+
         method = body.get("method")
         request_id = body.get("id")
         params = body.get("params", {})
-        
+
         if not method:
             raise ValueError("Missing 'method' in JSON-RPC request")
-        
+
         logger.info(f"Processing MCP request: {method} (id: {request_id})")
-        
+
         # Handle different methods
         try:
             if method == "initialize":
@@ -235,13 +233,13 @@ async def mcp_endpoint(request: Request):
                 result = mock_mcp.handle_tools_call(params)
             else:
                 raise ValueError(f"Method not found: {method}")
-            
+
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "result": result
             }
-            
+
         except Exception as e:
             logger.error(f"Error processing {method}: {e}")
             return {
@@ -253,7 +251,7 @@ async def mcp_endpoint(request: Request):
                     "data": {"method": method}
                 }
             }
-            
+
     except json.JSONDecodeError as e:
         logger.error(f"JSON decode error: {e}")
         return JSONResponse(
@@ -290,7 +288,7 @@ async def root():
         "message": "Docker Swarm MCP Server Mock",
         "version": "0.1.0",
         "endpoints": {
-            "mcp": "/mcp/v1",
+            "mcp": "/mcp/",
             "health": "/mcp/healthz"
         }
     }
@@ -300,11 +298,11 @@ def main():
     print("🚀 Starting Mock Docker Swarm MCP Server")
     print("📋 This is a development server with mock Docker functionality")
     print("🔗 Server will be available at: http://localhost:8000")
-    print("🔑 MCP endpoint: http://localhost:8000/mcp/v1")
+    print("🔑 MCP endpoint: http://localhost:8000/mcp")
     print("💚 Health endpoint: http://localhost:8000/mcp/healthz")
     print("🔑 Access Token:", os.environ.get('MCP_ACCESS_TOKEN'))
     print("")
-    
+
     import uvicorn
     uvicorn.run(
         app,

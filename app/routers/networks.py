@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Response, status
 
 from app.core.auth import verify_token
-from app.docker_client import get_docker_client, DockerClient
+from app.docker_client import DockerClient, get_docker_client
 from app.schemas.networks import NetworkCreateRequest, NetworkResponse
 
 router = APIRouter()

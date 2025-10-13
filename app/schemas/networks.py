@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Dict
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 from app.schemas.ipam import IPAM
 
@@ -9,7 +10,7 @@ class NetworkCreateRequest(BaseModel):
     name: str = Field(..., description="Network name")
     driver: Optional[str] = Field("bridge", description="Network driver (bridge, overlay, macvlan, host, none)")
     ipam: Optional[IPAM] = Field(None, description="IP address management configuration")
-    options: Optional[Dict[str, str]] = Field(None, description="Driver-specific options")
+    options: Optional[dict[str, str]] = Field(None, description="Driver-specific options")
 
     class Config:
         json_schema_extra = {

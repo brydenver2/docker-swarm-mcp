@@ -5,11 +5,9 @@ Tests verify JSON-RPC 2.0 protocol compliance, schema validation,
 and tool gating integration using deterministic mocks.
 """
 
-import json
 import pytest
-from fastapi.testclient import TestClient
 
-from tests.conftest import TEST_TOKEN, test_client_with_mock
+from tests.conftest import TEST_TOKEN
 
 
 class TestMCPProtocolCompliance:
@@ -18,7 +16,7 @@ class TestMCPProtocolCompliance:
     def test_initialize_request(self, test_client_with_mock):
         """Test MCP initialize handshake"""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "initialize",
@@ -42,51 +40,10 @@ class TestMCPProtocolCompliance:
         assert data["result"]["serverInfo"]["name"] == "docker-swarm-mcp"
         assert data["result"]["capabilities"]["tools"]["gating"] is True
 
-    def test_query_parameter_auth(self, test_client_with_mock):
-        """Test authentication via accessToken query parameter"""
+    def test_custom_header_auth(self, test_client_with_mock):
+        """Test authentication via X-Access-Token header"""
         response = test_client_with_mock.post(
-            f"/mcp/v1?accessToken={TEST_TOKEN}",
-            json={
-                "jsonrpc": "2.0",
-                "method": "initialize",
-                "params": {
-                    "clientInfo": {
-                        "name": "test-client",
-                        "version": "1.0.0"
-                    }
-                },
-                "id": 1
-            }
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["jsonrpc"] == "2.0"
-        assert data["id"] == 1
-        assert "result" in data
-
-    def test_query_parameter_auth_alternative_name(self, test_client_with_mock):
-        """Test authentication via access_token query parameter (alternative name)"""
-        response = test_client_with_mock.post(
-            f"/mcp/v1?access_token={TEST_TOKEN}",
-            json={
-                "jsonrpc": "2.0",
-                "method": "tools/list",
-                "params": {},
-                "id": 1
-            }
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["jsonrpc"] == "2.0"
-        assert "result" in data
-        assert "tools" in data["result"]
-
-    def test_header_auth_takes_precedence(self, test_client_with_mock):
-        """Test that Authorization header takes precedence over query parameter"""
-        response = test_client_with_mock.post(
-            f"/mcp/v1?accessToken=invalid-token",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "initialize",
@@ -98,7 +55,34 @@ class TestMCPProtocolCompliance:
                 },
                 "id": 1
             },
-            headers={"Authorization": f"Bearer {TEST_TOKEN}"}
+            headers={"X-Access-Token": TEST_TOKEN}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["jsonrpc"] == "2.0"
+        assert data["id"] == 1
+        assert "result" in data
+
+    def test_authorization_header_takes_precedence_over_custom_header(self, test_client_with_mock):
+        """Test that Authorization header takes precedence over X-Access-Token header"""
+        response = test_client_with_mock.post(
+            "/mcp/",
+            json={
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "params": {
+                    "clientInfo": {
+                        "name": "test-client",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": 1
+            },
+            headers={
+                "Authorization": f"Bearer {TEST_TOKEN}",
+                "X-Access-Token": "invalid-token"
+            }
         )
 
         assert response.status_code == 200
@@ -106,10 +90,30 @@ class TestMCPProtocolCompliance:
         assert data["jsonrpc"] == "2.0"
         assert "result" in data
 
-    def test_query_parameter_auth_invalid_token(self, test_client_with_mock):
-        """Test that invalid query parameter token is rejected"""
+    def test_custom_header_auth_invalid_token(self, test_client_with_mock):
+        """Test that invalid X-Access-Token header is rejected"""
         response = test_client_with_mock.post(
-            "/mcp/v1?accessToken=invalid-token",
+            "/mcp/",
+            json={
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "params": {
+                    "clientInfo": {
+                        "name": "test-client",
+                        "version": "1.0.0"
+                    }
+                },
+                "id": 1
+            },
+            headers={"X-Access-Token": "invalid-token"}
+        )
+
+        assert response.status_code == 403
+
+    def test_query_parameter_auth_no_longer_supported(self, test_client_with_mock):
+        """Test that query parameter authentication is no longer supported (security improvement)"""
+        response = test_client_with_mock.post(
+            f"/mcp/?accessToken={TEST_TOKEN}",
             json={
                 "jsonrpc": "2.0",
                 "method": "initialize",
@@ -123,12 +127,13 @@ class TestMCPProtocolCompliance:
             }
         )
 
+        # Confirms legacy query parameter tokens are rejected after security hardening
         assert response.status_code == 403
 
     def test_no_auth_provided(self, test_client_with_mock):
         """Test that request without any auth is rejected"""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "initialize",
@@ -147,7 +152,7 @@ class TestMCPProtocolCompliance:
     def test_tools_list_without_task_type(self, test_client_with_mock):
         """Test tools/list without task_type parameter"""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -180,7 +185,7 @@ class TestMCPProtocolCompliance:
     def test_tools_list_with_task_type(self, test_client_with_mock):
         """Test tools/list with task_type filtering"""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -207,7 +212,7 @@ class TestMCPProtocolCompliance:
     def test_tools_call_happy_path(self, test_client_with_mock):
         """Test tools/call successful execution"""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/call",
@@ -232,9 +237,8 @@ class TestMCPProtocolCompliance:
 
     def test_secret_redaction_in_logs(self, test_client_with_mock, caplog):
         """Test that sensitive data is redacted from logs"""
-        import logging
         from app.core.logging import redact_secrets
-        
+
         # Test redaction function directly
         test_data = {
             "message": "Test message",
@@ -246,9 +250,9 @@ class TestMCPProtocolCompliance:
             },
             "long_string": "-----BEGIN CERTIFICATE-----very-long-cert-data"
         }
-        
+
         redacted = redact_secrets(test_data)
-        
+
         assert redacted["authorization"] == "***REDACTED***"
         assert redacted["api_key"] == "***REDACTED***"
         assert redacted["nested"]["password"] == "***REDACTED***"
@@ -256,11 +260,11 @@ class TestMCPProtocolCompliance:
         assert "***REDACTED***" in redacted["long_string"]
         assert redacted["message"] == "Test message"
 
-    def test_tools_call_blocked_tool(self, monkeypatch):
+    def test_tools_call_blocked_tool(self, test_client_with_mock, monkeypatch):
         """Test tools/call with blocked tool (SecurityFilter)"""
         # Monkeypatch the tool_gate_controller to include a blocklist
-        from app.mcp.tool_gating import FilterConfig, ToolGateController
         from app.main import app as main_app
+        from app.mcp.tool_gating import FilterConfig, ToolGateController
 
         # Get current registry and create new controller with blocklist
         tool_registry = main_app.state.tool_registry
@@ -282,8 +286,8 @@ class TestMCPProtocolCompliance:
         main_app.state.mcp_server = DynamicToolGatingMCP(tool_registry, test_controller)
 
         # Test 1: tools/list should exclude blocked tool
-        response_list = client.post(
-            "/mcp/v1",
+        response_list = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -299,8 +303,8 @@ class TestMCPProtocolCompliance:
         assert "remove-container" not in tool_names, "Blocked tool should not appear in tools/list"
 
         # Test 2: tools/call should return 403 for blocked tool
-        response_call = client.post(
-            "/mcp/v1",
+        response_call = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/call",
@@ -321,10 +325,10 @@ class TestMCPProtocolCompliance:
         # Should be METHOD_NOT_FOUND (-32601) or Forbidden
         assert data_call["error"]["code"] in [-32601, 403]
 
-    def test_tools_call_invalid_params(self):
+    def test_tools_call_invalid_params(self, test_client_with_mock):
         """Test tools/call with schema validation failure"""
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/call",
@@ -347,10 +351,10 @@ class TestMCPProtocolCompliance:
         assert "error" in data
         assert data["error"]["code"] == -32602  # INVALID_PARAMS
 
-    def test_method_not_found(self):
+    def test_method_not_found(self, test_client_with_mock):
         """Test unknown JSON-RPC method"""
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "unknown/method",
@@ -367,10 +371,10 @@ class TestMCPProtocolCompliance:
         assert "error" in data
         assert data["error"]["code"] == -32601  # METHOD_NOT_FOUND
 
-    def test_unauthorized_request(self):
+    def test_unauthorized_request(self, test_client_with_mock):
         """Test request without authentication token"""
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -381,10 +385,10 @@ class TestMCPProtocolCompliance:
 
         assert response.status_code == 403  # No authorization header
 
-    def test_invalid_token(self):
+    def test_invalid_token(self, test_client_with_mock):
         """Test request with invalid token"""
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -400,10 +404,10 @@ class TestMCPProtocolCompliance:
 class TestTokenScopesAndRequiredScopes:
     """Test TOKEN_SCOPES mapping and required_scopes fallback behavior"""
 
-    def test_token_scopes_limited_access(self, monkeypatch):
+    def test_token_scopes_limited_access(self, test_client_with_mock, monkeypatch):
         """Test TOKEN_SCOPES mapping grants limited scopes to specific tokens"""
         import json
-        from app.main import app as main_app
+
 
         # Setup: Configure TOKEN_SCOPES with limited scopes for user-token
         token_scopes_config = json.dumps({
@@ -414,12 +418,13 @@ class TestTokenScopesAndRequiredScopes:
 
         # Reload settings to pick up new TOKEN_SCOPES
         from importlib import reload
+
         from app.core import config
         reload(config)
 
         # Test: user-token should see only container-ops tools
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -439,7 +444,7 @@ class TestTokenScopesAndRequiredScopes:
         # Should NOT include network/volume tools (different scopes)
         # Note: This assumes tools.yaml has proper required_scopes or task_types set
 
-    def test_tools_list_hides_tools_without_matching_scopes(self, monkeypatch):
+    def test_tools_list_hides_tools_without_matching_scopes(self, test_client_with_mock, monkeypatch):
         """Test tools/list excludes tools when user lacks required scopes"""
         import json
 
@@ -452,12 +457,13 @@ class TestTokenScopesAndRequiredScopes:
 
         # Reload settings
         from importlib import reload
+
         from app.core import config
         reload(config)
 
         # Test with container-ops token
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -474,7 +480,7 @@ class TestTokenScopesAndRequiredScopes:
         # Verify container tools are present
         assert "list-containers" in tool_names
 
-    def test_tools_call_fails_without_required_scopes(self, monkeypatch):
+    def test_tools_call_fails_without_required_scopes(self, test_client_with_mock, monkeypatch):
         """Test tools/call returns error when user lacks required scopes"""
         import json
 
@@ -486,12 +492,13 @@ class TestTokenScopesAndRequiredScopes:
 
         # Reload settings
         from importlib import reload
+
         from app.core import config
         reload(config)
 
         # Test: Try to call container tool with network-only token
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/call",
@@ -512,7 +519,7 @@ class TestTokenScopesAndRequiredScopes:
         # Tool should be blocked due to insufficient scopes
         assert data["error"]["code"] in [-32601, 403]
 
-    def test_admin_token_bypasses_all_checks(self, monkeypatch):
+    def test_admin_token_bypasses_all_checks(self, test_client_with_mock, monkeypatch):
         """Test admin scope grants access to all tools"""
         import json
 
@@ -525,12 +532,13 @@ class TestTokenScopesAndRequiredScopes:
 
         # Reload settings
         from importlib import reload
+
         from app.core import config
         reload(config)
 
         # Test: admin token should see all tools
-        response_all = client.post(
-            "/mcp/v1",
+        response_all = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -542,7 +550,7 @@ class TestTokenScopesAndRequiredScopes:
 
         # Test: user token with limited scope
         response_limited = client.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -561,7 +569,7 @@ class TestTokenScopesAndRequiredScopes:
         # Admin should have access to more tools than limited user
         assert len(admin_tools) >= len(user_tools)
 
-    def test_required_scopes_fallback_to_task_types(self, monkeypatch):
+    def test_required_scopes_fallback_to_task_types(self, test_client_with_mock, monkeypatch):
         """Test that authorization falls back to task_types when required_scopes not defined"""
         # This tests the fallback behavior documented in Comment 2
         # When a tool doesn't have explicit required_scopes, it should use task_types
@@ -576,12 +584,13 @@ class TestTokenScopesAndRequiredScopes:
 
         # Reload settings
         from importlib import reload
+
         from app.core import config
         reload(config)
 
         # Test: Call tool that relies on task_types fallback
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -610,10 +619,10 @@ class TestSchemaValidation:
         # If we reach here, schemas are valid
         assert True
 
-    def test_input_schema_validation(self):
+    def test_input_schema_validation(self, test_client_with_mock):
         """Test input parameter validation against request_schema"""
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/call",
@@ -635,12 +644,12 @@ class TestSchemaValidation:
         assert data["jsonrpc"] == "2.0"
         assert data["id"] == 9
 
-    def test_output_schema_validation(self):
+    def test_output_schema_validation(self, test_client_with_mock):
         """Test output validation against response_schema"""
         # Output validation is logged but doesn't fail requests
         # This test ensures the validation logic runs
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/call",
@@ -660,11 +669,11 @@ class TestSchemaValidation:
 class TestToolGatingIntegration:
     """Test tool gating integration in MCP handlers"""
 
-    def test_task_type_filter_applied(self):
+    def test_task_type_filter_applied(self, test_client_with_mock):
         """Test TaskTypeFilter reduces tool count"""
         # Get all tools
-        response_all = client.post(
-            "/mcp/v1",
+        response_all = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -675,8 +684,8 @@ class TestToolGatingIntegration:
         )
 
         # Get container-ops tools only
-        response_filtered = client.post(
-            "/mcp/v1",
+        response_filtered = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -691,10 +700,10 @@ class TestToolGatingIntegration:
 
         assert len(filtered_tools) < len(all_tools)
 
-    def test_context_size_enforcement(self):
+    def test_context_size_enforcement(self, test_client_with_mock):
         """Test context_size is computed and returned"""
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -710,10 +719,10 @@ class TestToolGatingIntegration:
         assert isinstance(data["result"]["_metadata"]["context_size"], int)
         assert data["result"]["_metadata"]["context_size"] > 0
 
-    def test_session_id_tracking(self):
+    def test_session_id_tracking(self, test_client_with_mock):
         """Test session ID is tracked in logs"""
-        response = client.post(
-            "/mcp/v1",
+        response = test_client_with_mock.post(
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -732,11 +741,11 @@ class TestToolGatingIntegration:
 
 class TestIntentBasedToolDiscovery:
     """Integration tests for intent-based tool discovery."""
-    
+
     def test_tools_list_with_query_parameter(self, test_client_with_mock):
         """Test tools/list with query parameter for intent-based filtering."""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -745,7 +754,7 @@ class TestIntentBasedToolDiscovery:
             },
             headers={"Authorization": f"Bearer {TEST_TOKEN}"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["jsonrpc"] == "2.0"
@@ -753,7 +762,7 @@ class TestIntentBasedToolDiscovery:
         assert "result" in data
         assert "tools" in data["result"]
         assert "_metadata" in data["result"]
-        
+
         # Check metadata includes intent classification info
         metadata = data["result"]["_metadata"]
         assert "query" in metadata
@@ -762,7 +771,7 @@ class TestIntentBasedToolDiscovery:
         assert "container-ops" in metadata["detected_task_types"]
         assert "classification_method" in metadata
         assert metadata["classification_method"] == "intent"
-        
+
         # Should return only container-ops tools
         tools = data["result"]["tools"]
         tool_names = [tool["name"] for tool in tools]
@@ -771,11 +780,11 @@ class TestIntentBasedToolDiscovery:
         # Should not include non-container tools
         assert "list-networks" not in tool_names
         assert "list-volumes" not in tool_names
-    
+
     def test_tools_list_query_overrides_task_type(self, test_client_with_mock):
         """Test that query parameter takes precedence over task_type."""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -787,26 +796,26 @@ class TestIntentBasedToolDiscovery:
             },
             headers={"Authorization": f"Bearer {TEST_TOKEN}"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         metadata = data["result"]["_metadata"]
-        
+
         # Query should take precedence
         assert metadata["classification_method"] == "intent"
         assert "system-ops" in metadata["detected_task_types"]
-        
+
         # Should return system tools, not container tools
         tools = data["result"]["tools"]
         tool_names = [tool["name"] for tool in tools]
         assert "info" in tool_names
         assert "ping" in tool_names
         assert "list-containers" not in tool_names
-    
+
     def test_tools_list_with_ambiguous_query(self, test_client_with_mock):
         """Test query that matches multiple task types."""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -815,29 +824,29 @@ class TestIntentBasedToolDiscovery:
             },
             headers={"Authorization": f"Bearer {TEST_TOKEN}"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         metadata = data["result"]["_metadata"]
-        
+
         # Should detect multiple task types
         detected_types = metadata["detected_task_types"]
         assert "container-ops" in detected_types
         assert "network-ops" in detected_types
         assert "system-ops" in detected_types
         assert len(detected_types) >= 3
-        
+
         # Should return tools from all detected types
         tools = data["result"]["tools"]
         tool_names = [tool["name"] for tool in tools]
         assert "list-containers" in tool_names
         assert "list-networks" in tool_names
         assert "info" in tool_names
-    
+
     def test_tools_list_with_no_match_query(self, test_client_with_mock):
         """Test query with no keyword matches."""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -846,24 +855,24 @@ class TestIntentBasedToolDiscovery:
             },
             headers={"Authorization": f"Bearer {TEST_TOKEN}"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         metadata = data["result"]["_metadata"]
-        
+
         # Should have empty detected task types
         assert "detected_task_types" in metadata
         assert metadata["detected_task_types"] == []
         assert metadata["classification_method"] == "intent"
-        
+
         # With fallback enabled, should return all tools
         tools = data["result"]["tools"]
         assert len(tools) > 0  # Should return some tools (fallback behavior)
-    
+
     def test_tools_list_backward_compatibility(self, test_client_with_mock):
         """Test backward compatibility with explicit task_type."""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -872,26 +881,26 @@ class TestIntentBasedToolDiscovery:
             },
             headers={"Authorization": f"Bearer {TEST_TOKEN}"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         metadata = data["result"]["_metadata"]
-        
+
         # Should use explicit classification
         assert metadata["classification_method"] == "explicit"
         assert "detected_task_types" not in metadata  # Not used for explicit
-        
+
         # Should return only network tools
         tools = data["result"]["tools"]
         tool_names = [tool["name"] for tool in tools]
         assert "list-networks" in tool_names
         assert "create-network" in tool_names
         assert "list-containers" not in tool_names
-    
+
     def test_tools_list_without_query_or_task_type(self, test_client_with_mock):
         """Test tools/list with empty params (no classification)."""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -900,24 +909,24 @@ class TestIntentBasedToolDiscovery:
             },
             headers={"Authorization": f"Bearer {TEST_TOKEN}"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         metadata = data["result"]["_metadata"]
-        
+
         # Should indicate no classification
         assert metadata["classification_method"] == "none"
         assert "query" not in metadata
         assert "detected_task_types" not in metadata
-        
+
         # Should return all tools
         tools = data["result"]["tools"]
         assert len(tools) > 0
-    
+
     def test_intent_classification_in_metadata(self, test_client_with_mock):
         """Test that metadata includes all intent classification fields."""
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -926,18 +935,18 @@ class TestIntentBasedToolDiscovery:
             },
             headers={"Authorization": f"Bearer {TEST_TOKEN}"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         metadata = data["result"]["_metadata"]
-        
+
         # Check all expected metadata fields
         assert "context_size" in metadata
         assert "filters_applied" in metadata
         assert "query" in metadata
         assert "detected_task_types" in metadata
         assert "classification_method" in metadata
-        
+
         # Verify specific values
         assert metadata["query"] == "deploy compose stack"
         assert "compose-ops" in metadata["detected_task_types"]
@@ -948,12 +957,12 @@ class TestIntentBasedToolDiscovery:
     def test_intent_classification_disabled(self, test_client_with_mock, monkeypatch):
         """Test behavior when INTENT_CLASSIFICATION_ENABLED=false."""
         from app.core.config import settings
-        
+
         # Monkeypatch settings directly
         monkeypatch.setattr(settings, "INTENT_CLASSIFICATION_ENABLED", False)
-        
+
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -962,16 +971,16 @@ class TestIntentBasedToolDiscovery:
             },
             headers={"Authorization": f"Bearer {TEST_TOKEN}"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         metadata = data["result"]["_metadata"]
-        
+
         # Should indicate classification was disabled
         assert metadata["classification_method"] == "none"
         assert "detected_task_types" in metadata
         assert metadata["detected_task_types"] == []
-        
+
         # Should return all tools since no filtering occurred
         tools = data["result"]["tools"]
         assert len(tools) > 5  # Should have many tools, not just container-ops
@@ -979,13 +988,13 @@ class TestIntentBasedToolDiscovery:
     def test_intent_fallback_disabled_no_matches(self, test_client_with_mock, monkeypatch):
         """Test behavior when INTENT_FALLBACK_TO_ALL=false and no task types detected."""
         from app.core.config import settings
-        
+
         # Monkeypatch settings directly
         monkeypatch.setattr(settings, "INTENT_FALLBACK_TO_ALL", False)
         monkeypatch.setattr(settings, "STRICT_CONTEXT_LIMIT", True)
-        
+
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -994,20 +1003,20 @@ class TestIntentBasedToolDiscovery:
             },
             headers={"Authorization": f"Bearer {TEST_TOKEN}"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         metadata = data["result"]["_metadata"]
-        
+
         # Should have empty tool set
         tools = data["result"]["tools"]
         assert len(tools) == 0
-        
+
         # Should include warning in metadata
         assert "warning" in metadata
         assert "No task types detected" in metadata["warning"]
         assert "fallback disabled" in metadata["warning"]
-        
+
         # Should still include detected_task_types as empty list
         assert "detected_task_types" in metadata
         assert metadata["detected_task_types"] == []
@@ -1015,13 +1024,13 @@ class TestIntentBasedToolDiscovery:
     def test_intent_fallback_enabled_no_matches(self, test_client_with_mock, monkeypatch):
         """Test behavior when INTENT_FALLBACK_TO_ALL=true and no task types detected."""
         from app.core.config import settings
-        
+
         # Monkeypatch settings directly
         monkeypatch.setattr(settings, "INTENT_FALLBACK_TO_ALL", True)
         monkeypatch.setattr(settings, "STRICT_CONTEXT_LIMIT", False)
-        
+
         response = test_client_with_mock.post(
-            "/mcp/v1",
+            "/mcp/",
             json={
                 "jsonrpc": "2.0",
                 "method": "tools/list",
@@ -1030,18 +1039,18 @@ class TestIntentBasedToolDiscovery:
             },
             headers={"Authorization": f"Bearer {TEST_TOKEN}"}
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         metadata = data["result"]["_metadata"]
-        
+
         # Should have all tools (fallback behavior)
         tools = data["result"]["tools"]
         assert len(tools) > 5  # Should have many tools
-        
+
         # Should not have warning since fallback is enabled
         assert "warning" not in metadata
-        
+
         # Should still include detected_task_types as empty list
         assert "detected_task_types" in metadata
         assert metadata["detected_task_types"] == []

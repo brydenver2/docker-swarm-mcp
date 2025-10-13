@@ -4,7 +4,6 @@ Build-time validator to cross-check tools.yaml schemas against Pydantic models.
 Run this script before deployment to ensure schema consistency.
 """
 
-import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -16,7 +15,6 @@ from pydantic import BaseModel, ValidationError
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.schemas import containers, networks, services, stacks, system, volumes
-
 
 # Mapping of tool names to their Pydantic schema models
 TOOL_SCHEMA_MAPPING = {

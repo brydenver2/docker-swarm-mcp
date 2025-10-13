@@ -14,6 +14,14 @@
 - **Multi-Token Support**: Configurable token scopes via `TOKEN_SCOPES` environment variable
 - **Scope-Based Authorization**: Fine-grained access control per tool category
 - **JWT Support**: Optional JWT tokens with scope claims (validated after HMAC check)
+- **Header-Only Authentication**: Tokens accepted only via headers (`Authorization` or `X-Access-Token`); query parameters rejected as of v0.5.0
+
+### Authentication Security Improvements
+
+- **Removed Query Parameter Tokens**: URLs like `/mcp/?accessToken=...` exposed secrets in web server logs, reverse proxies, browser history, and referrer headers. This vector is eliminated in v0.5.0.
+- **Custom Header Support**: The `X-Access-Token` header provides a simple alternative to the `Authorization` header for clients without advanced header configuration.
+- **Redaction Enhancements**: Logging filters strip both `Authorization` and `X-Access-Token` headers to prevent accidental leakage in structured logs.
+- **Client Guidance**: Documentation and client setup guides now default to header-based authentication patterns to reinforce secure usage.
 
 ### Network Security
 
@@ -57,6 +65,8 @@
 - **Input Sanitization**: All Docker SDK inputs validated
 
 ## Security Best Practices
+
+> Tokens must be sent via headers. Prefer `Authorization: Bearer <token>` and fall back to `X-Access-Token: <token>` when clients need a simpler header.
 
 ### For Production Deployment
 
@@ -121,6 +131,8 @@ LOG_LEVEL="INFO"  # Don't use DEBUG in production
 ```
 
 ## Known Security Considerations
+
+- ✅ Query parameter authentication has been removed; tokens are never transmitted in URLs, eliminating a common leakage vector.
 
 ### Docker Socket Access
 
@@ -240,4 +252,3 @@ Security advisories monitored for:
 - PyJWT (optional)
 
 Updates tracked via Dependabot and Poetry.
-

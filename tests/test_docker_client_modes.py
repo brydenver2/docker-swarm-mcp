@@ -5,8 +5,10 @@ Tests verify DOCKER_HOST, DOCKER_TLS_VERIFY, and DOCKER_CERT_PATH handling
 for Unix socket, TCP, TCP+TLS, and SSH modes.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+
 from app.docker_client import DockerClient
 
 

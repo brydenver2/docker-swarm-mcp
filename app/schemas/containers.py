@@ -1,14 +1,15 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class ContainerCreateRequest(BaseModel):
     image: str = Field(..., description="Docker image name")
     name: Optional[str] = Field(None, description="Container name (auto-generated if omitted)")
-    environment: Optional[Dict[str, str]] = Field(None, description="Environment variables")
-    ports: Optional[Dict[str, int]] = Field(None, description="Port mappings (container_port -> host_port)")
-    volumes: Optional[Dict[str, Dict[str, str]]] = Field(None, description="Volume mounts")
+    environment: Optional[dict[str, str]] = Field(None, description="Environment variables")
+    ports: Optional[dict[str, int]] = Field(None, description="Port mappings (container_port -> host_port)")
+    volumes: Optional[dict[str, dict[str, str]]] = Field(None, description="Volume mounts")
     restart_policy: Optional[str] = Field("no", description="Restart policy")
 
     class Config:

@@ -1,5 +1,4 @@
 import os
-import sys
 from typing import Literal
 
 
@@ -16,7 +15,8 @@ class Settings:
     MCP_TOOL_TIMEOUT: int = int(os.getenv("MCP_TOOL_TIMEOUT", "30"))  # seconds
     ENFORCE_OUTPUT_SCHEMA: bool = os.getenv("ENFORCE_OUTPUT_SCHEMA", "false").lower() == "true"
     STRICT_CONTEXT_LIMIT: bool = os.getenv("STRICT_CONTEXT_LIMIT", "false").lower() == "true"
-    
+    ENABLE_REST_API: bool = os.getenv("ENABLE_REST_API", "false").lower() == "true"
+
     # Per-tool timeout configurations (seconds)
     MCP_TIMEOUT_READ_OPS: int = int(os.getenv("MCP_TIMEOUT_READ_OPS", "15"))  # list, get, info operations
     MCP_TIMEOUT_WRITE_OPS: int = int(os.getenv("MCP_TIMEOUT_WRITE_OPS", "30"))  # create, start, stop operations
@@ -28,7 +28,7 @@ class Settings:
     RETRY_READ_MAX_DELAY: float = float(os.getenv("RETRY_READ_MAX_DELAY", "1.0"))
     RETRY_READ_BACKOFF_FACTOR: float = float(os.getenv("RETRY_READ_BACKOFF_FACTOR", "2.0"))
     RETRY_READ_JITTER: bool = os.getenv("RETRY_READ_JITTER", "true").lower() == "true"
-    
+
     RETRY_WRITE_MAX_ATTEMPTS: int = int(os.getenv("RETRY_WRITE_MAX_ATTEMPTS", "2"))
     RETRY_WRITE_BASE_DELAY: float = float(os.getenv("RETRY_WRITE_BASE_DELAY", "0.2"))
     RETRY_WRITE_MAX_DELAY: float = float(os.getenv("RETRY_WRITE_MAX_DELAY", "1.5"))
