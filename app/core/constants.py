@@ -1,4 +1,3 @@
--APP_NAME = "Docker Swarm MCP Server"
 APP_NAME: str = "Docker Swarm MCP Server"
 APP_VERSION: str = "0.5.0"
 
