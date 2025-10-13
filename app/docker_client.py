@@ -84,8 +84,8 @@ class DockerClient:
             logger.error(f"Failed to initialize Docker client: {e}")
             raise RuntimeError(f"Docker engine unreachable: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error initializing Docker client: {e}")
-            raise RuntimeError(f"Docker engine unreachable: {e}")
+            logger.exception("Unexpected error initializing Docker client")
+            raise RuntimeError("Docker engine unreachable") from e
 
         self._is_swarm_cache: bool | None = None
 
