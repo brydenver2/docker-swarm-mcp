@@ -6,6 +6,7 @@ schema validation, and enhanced observability.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import uuid
@@ -906,21 +907,34 @@ async def mcp_endpoint(
     x_task_type: str | None = None
 ) -> JSONResponse:
     """
-    Handle incoming MCP JSON-RPC requests and dispatch them to the appropriate MCP server handlers.
+    Dispatch incoming MCP JSON-RPC requests to the MCP server handlers and return the appropriate JSON-RPC 2.0 response.
     
-    Supports the JSON-RPC methods: "initialize", "tools/list", "tools/call", "prompts/list", and "prompts/get". JSON-RPC notifications (requests with no `id`) are accepted and return an empty HTTP 200 response with no JSON-RPC body. Authentication and scope extraction are provided via the `scopes` dependency.
+    Supports the JSON-RPC methods: "initialize", "tools/list", "tools/call", "prompts/list", and "prompts/get". JSON-RPC notifications (requests with no `id`) are accepted and return an empty HTTP 200 response with no JSON-RPC body. When an X-Session-ID header is not provided, a deterministic session id is derived from the presented Authorization token or X-Access-Token (SHA-256 based) when available; otherwise a new UUID is generated. Authentication scopes are provided via the `scopes` dependency and are used for gating and permission checks. The handler obtains the MCP server instance and docker client from the FastAPI app state and forwards requests to the corresponding MCP handlers.
     
     Parameters:
-        request (Request): FastAPI request object containing app state and headers.
-        jsonrpc_request (JSONRPCRequest): Parsed JSON-RPC 2.0 request payload.
-        scopes (set[str]): Authorization scopes extracted by the dependency; used for gating and permission checks.
-        x_task_type (str | None): Optional task-type header override for backward compatibility.
+        x_task_type (str | None): Optional X-Task-Type header override used for backward compatibility.
     
     Returns:
-        JSONResponse: HTTP 200 JSON-RPC 2.0 response containing either a `result` or an `error` field, or an empty HTTP 200 response for notifications.
+        JSONResponse: A JSON-RPC 2.0 response containing either a `result` or an `error` field; notifications return an empty HTTP 200 response with no JSON-RPC body.
     """
     request_id = str(uuid.uuid4())
-    session_id = request.headers.get("X-Session-ID", str(uuid.uuid4()))
+
+    session_id = request.headers.get("X-Session-ID")
+    if not session_id:
+        # Derive a deterministic session id from the presented auth token when available.
+        token_source = None
+        auth_header = request.headers.get("Authorization")
+        if auth_header:
+            parts = auth_header.split()
+            token_source = parts[1] if len(parts) == 2 else auth_header
+        if not token_source:
+            token_source = request.headers.get("X-Access-Token")
+
+        if token_source:
+            digest = hashlib.sha256(token_source.encode("utf-8")).hexdigest()
+            session_id = f"token-{digest[:16]}"
+        else:
+            session_id = str(uuid.uuid4())
 
     # Handle notification requests (no id field)
     is_notification = jsonrpc_request.id is None

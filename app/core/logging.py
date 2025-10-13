@@ -95,18 +95,15 @@ class JSONFormatter(logging.Formatter):
 
 def redact_secrets(data: dict[str, Any]) -> dict[str, Any]:
     """
-    Recursively redact sensitive values in a mapping intended for logging.
+    Redact sensitive values in a mapping intended for logging.
     
-    Processes the provided mapping and returns a copy where keys that indicate secrets (for example, tokens, passwords, API keys, authorization headers, and similar) are replaced with "***REDACTED***". Special cases:
-    - "query_params" dictionaries: any parameter named "accesstoken" or "access_token" is redacted while other params are preserved.
-    - Nested dictionaries and lists of dictionaries are processed recursively.
-    - Long string values (>100 chars) containing certificate/PEM markers ("BEGIN", "-----") or when the key contains "yaml" are truncated to the first 50 characters and appended with "...***REDACTED***"; other long strings are preserved.
+    Recursively returns a copy of the input mapping where values for keys that indicate secrets (for example: token, password, secret, api_key, authorization, bearer, credentials, auth, access_token, refresh_token, accesstoken, x-access-token) are replaced with "***REDACTED***". Nested dicts and lists of dicts are processed recursively. For a "query_params" dict, parameters named "accesstoken" or "access_token" are redacted while other parameters are preserved. String values that look like PEM/certificate content (contain or start with PEM markers such as "BEGIN" or "-----") or string values longer than 100 characters when the key name contains "yaml" are truncated to the first 50 characters and suffixed with "...***REDACTED***". Keys ending with "_pem" are also redacted/truncated to the same form if not already redacted.
     
     Parameters:
-        data (dict[str, Any]): The mapping to inspect and redact for sensitive information.
+        data (dict[str, Any]): Mapping to inspect and redact.
     
     Returns:
-        dict[str, Any]: A redacted copy of the input mapping with sensitive values replaced or truncated as described.
+        dict[str, Any]: A redacted copy of the input mapping.
     """
     sensitive_keys = {
         "token", "password", "secret", "api_key", "authorization",
@@ -138,19 +135,34 @@ def redact_secrets(data: dict[str, Any]) -> dict[str, Any]:
                 redact_secrets(item) if isinstance(item, dict) else item
                 for item in value
             ]
-        # Redact long strings that might contain secrets
-        elif isinstance(value, str) and len(value) > 100:
-            if "BEGIN" in value or "-----" in value or "yaml" in key.lower():
+        elif isinstance(value, str):
+            contains_pem_marker = value.startswith("-----BEGIN ") or ("-----" in value and "BEGIN" in value)
+            if contains_pem_marker:
                 redacted[key] = f"{value[:50]}...***REDACTED***"
+            # Redact long strings that might contain secrets
+            elif len(value) > 100:
+                if "BEGIN" in value or "-----" in value or "yaml" in key.lower():
+                    redacted[key] = f"{value[:50]}...***REDACTED***"
+                else:
+                    redacted[key] = value
             else:
                 redacted[key] = value
         else:
             redacted[key] = value
 
+        # Ensure shorter YAML-encoded secrets (by key hint) are redacted consistently
+        if isinstance(value, str) and key.lower().endswith("_pem") and "***REDACTED***" not in redacted[key]:
+            redacted[key] = f"{value[:50]}...***REDACTED***"
+
     return redacted
 
 
 def setup_logging() -> None:
+    """
+    Configure root and uvicorn loggers to emit JSON-formatted logs with sensitive data redacted.
+    
+    Sets the root logger level from settings.LOG_LEVEL, attaches a SensitiveDataFilter to redact secrets, and adds a StreamHandler that formats records using JSONFormatter to stdout. Also clears handlers for the "uvicorn", "uvicorn.access", and "uvicorn.error" loggers, enables propagation, and attaches the same sensitive-data filter to them.
+    """
     logger = logging.getLogger()
     logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper()))
 

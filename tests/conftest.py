@@ -470,3 +470,29 @@ def setup_test_env(monkeypatch):
 
 # Test token for authentication (matches setup_test_env fixture)
 TEST_TOKEN = "test-token-123"
+
+
+@pytest.fixture
+def method() -> str:
+    """
+    Default HTTP method fixture for integration-style tests.
+    
+    Provides a deterministic default so pytest can execute helper-style tests that accept a `method` argument without requiring parametrization.
+    
+    Returns:
+        default_method (str): The HTTP method string "GET" used as the fixture value.
+    """
+    return "GET"
+
+
+@pytest.fixture
+def endpoint() -> str:
+    """
+    Provide the default health-check endpoint used by helper-style tests.
+    
+    Used by tests that accept an `endpoint` fixture so they can exercise error handling when the MCP server is unavailable.
+    
+    Returns:
+        endpoint (str): The health-check path "/mcp/healthz".
+    """
+    return "/mcp/healthz"

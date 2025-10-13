@@ -17,16 +17,16 @@ logger = logging.getLogger(__name__)
 class DockerClient:
     def __init__(self) -> None:
         """
-        Initialize the Docker client honoring explicit DOCKER_HOST, TLS, and SSH configuration.
+        Create and configure the Docker client using application settings and verify connectivity.
         
-        Configures the client from application settings:
-        - DOCKER_HOST: daemon socket (unix://, tcp://, ssh://)
-        - DOCKER_TLS_VERIFY and DOCKER_CERT_PATH: enable and configure TLS with client and CA certificates
+        Configures the client from settings:
+        - DOCKER_HOST controls the daemon endpoint (e.g., unix://, tcp://, ssh://). If not explicitly set, falls back to environment/default Unix socket.
+        - DOCKER_TLS_VERIFY and DOCKER_CERT_PATH enable and configure TLS with client and CA certificates when provided.
         
-        Falls back to environment/default Unix socket when DOCKER_HOST is not explicitly set.
+        Verifies the Docker daemon is reachable by issuing a ping during initialization.
         
         Raises:
-            RuntimeError: If the Docker engine is unreachable during initialization.
+            RuntimeError: If the Docker engine is unreachable or an unexpected error occurs during client setup.
         """
         try:
             # Construct client based on explicit configuration
@@ -83,6 +83,9 @@ class DockerClient:
         except DockerException as e:
             logger.error(f"Failed to initialize Docker client: {e}")
             raise RuntimeError(f"Docker engine unreachable: {e}")
+        except Exception as e:
+            logger.exception("Unexpected error initializing Docker client")
+            raise RuntimeError("Docker engine unreachable") from e
 
         self._is_swarm_cache: bool | None = None
 
@@ -1093,6 +1096,12 @@ _docker_client_instance: DockerClient | None = None
 
 
 def get_docker_client() -> DockerClient:
+    """
+    Return the singleton DockerClient instance, creating and caching it on first call.
+    
+    Returns:
+        DockerClient: The cached global DockerClient instance.
+    """
     global _docker_client_instance
     if _docker_client_instance is None:
         _docker_client_instance = DockerClient()
