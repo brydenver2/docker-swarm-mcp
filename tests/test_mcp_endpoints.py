@@ -350,6 +350,17 @@ def main() -> None:
     time.sleep(2)
 
     # Run probes
+    meta_seed = _call_endpoint(
+        "POST",
+        "/mcp/",
+        {
+            "jsonrpc": "2.0",
+            "method": "tools/list",
+            "params": {"task_type": "meta-ops"},
+            "id": 9,
+        },
+    )
+
     probes = {
         "health": _call_endpoint("GET", "/mcp/healthz"),
         "initialize": _call_endpoint(
@@ -390,6 +401,7 @@ def main() -> None:
                 "params": {"name": "list-containers", "arguments": {"all": True}},
             },
         ),
+        "meta_tool_seed_meta": meta_seed,
         "meta_tool_discover": _call_endpoint(
             "POST",
             "/mcp/",
