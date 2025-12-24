@@ -20,20 +20,12 @@ COPY app/ ./app/
 COPY tools.yaml filter-config.json ./
 COPY scripts/entrypoint.sh ./scripts/
 
-# Create non-root user with docker group access
-# Use existing docker group (GID 999 already exists in Alpine 3.20) or create with different GID
-RUN (addgroup -g 998 dockergroup || true) && \
-    adduser -D -u 1000 mcp && \
-    addgroup mcp dockergroup && \
-    chown -R mcp:mcp /app
-
 # Create Tailscale state directory and set permissions
 RUN mkdir -p /var/lib/tailscale && \
-    chown -R mcp:mcp /var/lib/tailscale && \
     chmod +x /app/scripts/entrypoint.sh
 
-# Switch to non-root user
-USER mcp
+# Note: Container runs as root (user: "0:0" in docker-compose.yaml) to access Docker socket
+# This is required for Docker API access and is secured via MCP_ACCESS_TOKEN authentication
 
 EXPOSE 8000
 
