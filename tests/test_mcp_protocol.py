@@ -91,7 +91,7 @@ class TestMCPProtocolCompliance:
         assert "result" in data
 
     def test_custom_header_auth_invalid_token(self, test_client_with_mock):
-        """Test that invalid X-Access-Token header is rejected"""
+        """Test that invalid X-Access-Token header is rejected with 401 (authentication failed)"""
         response = test_client_with_mock.post(
             "/mcp/",
             json={
@@ -108,7 +108,7 @@ class TestMCPProtocolCompliance:
             headers={"X-Access-Token": "invalid-token"}
         )
 
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     def test_query_parameter_auth_no_longer_supported(self, test_client_with_mock):
         """
