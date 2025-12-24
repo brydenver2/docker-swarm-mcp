@@ -271,8 +271,8 @@ class TestAuthenticationEdgeCases:
 
     def test_auth_multiple_authorization_headers(self, test_client_with_mock):
         """Test behavior when multiple Authorization headers are provided"""
-        # When multiple Authorization headers are sent, authentication fails
-        # This is expected behavior - duplicate headers cause authentication to fail
+        # When multiple Authorization headers are sent, FastAPI uses the first one
+        # Test 1: First header valid, second invalid -> auth succeeds
         response = test_client_with_mock.post(
             "/mcp/",
             headers=[
@@ -281,7 +281,19 @@ class TestAuthenticationEdgeCases:
             ],
             json={"jsonrpc": "2.0", "id": "11", "method": "tools/list", "params": {}}
         )
-        # Authentication fails when multiple Authorization headers are present
+        # Authentication succeeds because the first Authorization header is valid
+        assert response.status_code == 200
+        
+        # Test 2: First header invalid, second valid -> auth fails
+        response = test_client_with_mock.post(
+            "/mcp/",
+            headers=[
+                ("Authorization", f"Bearer {INVALID_TOKEN}"),
+                ("Authorization", f"Bearer {TEST_TOKEN}")
+            ],
+            json={"jsonrpc": "2.0", "id": "12", "method": "tools/list", "params": {}}
+        )
+        # Authentication fails because the first Authorization header is invalid
         assert response.status_code == 401
 
     def test_auth_hmac_timing_attack_resistance(self, test_client_with_mock):

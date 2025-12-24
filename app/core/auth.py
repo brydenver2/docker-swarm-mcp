@@ -97,10 +97,10 @@ async def verify_token_with_scopes(
     """
     Resolve and validate an access token and return the set of authorization scopes for MCP endpoints.
     
-    The function first checks a TOKEN_SCOPES JSON mapping for per-token scopes, then falls back to validating a single shared MCP_ACCESS_TOKEN and deriving scopes from the token (JWT claims or configuration). On misconfiguration (neither TOKEN_SCOPES nor MCP_ACCESS_TOKEN configured) it raises HTTPException 500. On an invalid or missing token it raises HTTPException with status 401 or 403: tokens supplied via the X-Access-Token header initially map to 403, but the status may be converted to 401 after inspecting the request body (if the JSON payload's "method" is not "initialize" or body parsing fails).
+    The function first checks a TOKEN_SCOPES JSON mapping for per-token scopes, then falls back to validating a single shared MCP_ACCESS_TOKEN and deriving scopes from the token (JWT claims or configuration). On misconfiguration (neither TOKEN_SCOPES nor MCP_ACCESS_TOKEN configured) it raises HTTPException 500. On an invalid or missing token it raises HTTPException 401.
     
     Parameters:
-        request (Request): Incoming request object; inspected when the token was supplied via the X-Access-Token header to decide the appropriate failure status.
+        request (Request): Incoming request object (currently unused but kept for potential future use).
     
     Returns:
         set[str]: The resolved set of scope strings (for example {"admin", "container-ops", "read-only"}).
@@ -108,8 +108,7 @@ async def verify_token_with_scopes(
     Raises:
         HTTPException: 
             - 500 if neither TOKEN_SCOPES nor MCP_ACCESS_TOKEN is configured.
-            - 401 if the token is invalid or missing (or when X-Access-Token validation is downgraded to 401 after request inspection).
-            - 403 if the token is invalid and came from the X-Access-Token header and request inspection does not change the status.
+            - 401 if the token is invalid or missing.
     """
     token = credentials.credentials
 
@@ -137,21 +136,10 @@ async def verify_token_with_scopes(
     token_valid = hmac.compare_digest(token, settings.MCP_ACCESS_TOKEN)
 
     if not token_valid:
-        failure_status = status.HTTP_401_UNAUTHORIZED
-
-        if credentials.scheme == "X-Access-Token":
-            failure_status = status.HTTP_403_FORBIDDEN
-            try:
-                body_bytes = await request.body()
-                if body_bytes:
-                    payload = json.loads(body_bytes)
-                    if payload.get("method") != "initialize":
-                        failure_status = status.HTTP_401_UNAUTHORIZED
-            except (json.JSONDecodeError, AttributeError):
-                failure_status = status.HTTP_401_UNAUTHORIZED
-
+        # Always return 401 for invalid tokens to avoid consuming request body
+        # which would prevent FastAPI from parsing the JSONRPCRequest parameter
         raise HTTPException(
-            status_code=failure_status,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing access token"
         )
 
