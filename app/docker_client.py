@@ -128,7 +128,7 @@ class DockerClient:
         
         Returns:
             list[dict[str, Any]]: Each item contains:
-                - `id`: short container id
+                - `id`: full container id
                 - `name`: container name
                 - `status`: container status string
                 - `image`: preferred image tag or image short id
@@ -164,7 +164,7 @@ class DockerClient:
                 created_dt = datetime.fromisoformat(container.attrs["Created"].replace("Z", "+00:00"))
 
                 result.append({
-                    "id": container.short_id,
+                    "id": container.id,
                     "name": container.name,
                     "status": container.status,
                     "image": container.image.tags[0] if container.image.tags else container.image.short_id,
@@ -268,7 +268,7 @@ class DockerClient:
         
         Returns:
             dict: Metadata about the created container with keys:
-                - id (str): Container short ID.
+                - id (str): Container full ID.
                 - name (str): Container name.
                 - status (str): Container status immediately after creation.
                 - image (str): Image reference used to create the container.
@@ -290,7 +290,7 @@ class DockerClient:
                 restart_policy={"Name": config.get("restart_policy", "no")}
             )
             return {
-                "id": container.short_id,
+                "id": container.id,
                 "name": container.name,
                 "status": container.status,
                 "image": config["image"],
@@ -708,7 +708,7 @@ class DockerClient:
         List Docker services and return a simplified overview for each service.
         
         Each item in the returned list represents a service and contains the following keys:
-        - `id`: short service identifier.
+        - `id`: full service identifier.
         - `name`: service name.
         - `replicas`: integer number of replicas (0 if the service is in global mode or replicas not specified).
         - `image`: container image string from the service specification (empty string if not present).
@@ -739,7 +739,7 @@ class DockerClient:
                 created_at = service.attrs.get("CreatedAt", "")
 
                 result.append({
-                    "id": service.short_id,
+                    "id": service.id,
                     "name": service.name,
                     "replicas": replicas,
                     "image": container_spec.get("Image", ""),
@@ -765,7 +765,7 @@ class DockerClient:
         
         Returns:
             dict: Metadata for the service after scaling with keys:
-                - id (str): Short service ID.
+                - id (str): Full service ID.
                 - name (str): Service name.
                 - replicas (int): Current number of replicas.
                 - image (str): Container image used by the service.
@@ -800,7 +800,7 @@ class DockerClient:
             created_at = service.attrs.get("CreatedAt", "")
 
             return {
-                "id": service.short_id,
+                "id": service.id,
                 "name": service.name,
                 "replicas": current_replicas,
                 "image": container_spec.get("Image", ""),
@@ -846,7 +846,7 @@ class DockerClient:
         
         Returns:
             networks (list[dict[str, Any]]): A list of network descriptors. Each descriptor contains:
-                - id: short network ID (str)
+                - id: full network ID (str)
                 - name: network name (str)
                 - driver: network driver (str)
                 - scope: network scope, e.g. "local" (str)
@@ -870,7 +870,7 @@ class DockerClient:
                     created = datetime.now().isoformat()
 
                 result.append({
-                    "id": network.short_id,
+                    "id": network.id,
                     "name": network.name,
                     "driver": network.attrs.get("Driver", ""),
                     "scope": network.attrs.get("Scope", "local"),
@@ -898,7 +898,7 @@ class DockerClient:
         
         Returns:
             dict[str, Any]: Network summary containing:
-                - id: Short network ID.
+                - id: Full network ID.
                 - name: Network name.
                 - driver: Network driver.
                 - scope: Network scope (e.g., "local").
@@ -927,7 +927,7 @@ class DockerClient:
                 created = datetime.now().isoformat()
 
             return {
-                "id": network.short_id,
+                "id": network.id,
                 "name": network.name,
                 "driver": network.attrs.get("Driver", config.get("driver", "bridge")),
                 "scope": network.attrs.get("Scope", "local"),
