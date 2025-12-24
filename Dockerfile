@@ -1,16 +1,16 @@
-FROM python:3.12-slim
+FROM alpine:3.20
+
+USER root
 
 WORKDIR /app
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Install Python 3.13, pip, and other dependencies
+RUN apk update && \
+    apk add --no-cache bash python3 py3-pip curl tailscale iptables && \
+    python3 --version
 
-# Install Tailscale
-RUN curl -fsSL https://tailscale.com/install.sh | sh
-
-RUN pip install poetry==1.7.1
+# Install Poetry
+RUN pip install --break-system-packages poetry==1.7.1
 
 COPY pyproject.toml ./
 RUN poetry config virtualenvs.create false && \
