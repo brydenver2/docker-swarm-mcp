@@ -24,6 +24,40 @@ def get_env_float(name: str, default: float) -> float:
         raise ValueError(f"Environment variable {name} must be a float, got {raw!r}") from exc
 
 
+def read_token_from_file_or_env(env_var: str, file_env_var: str) -> str:
+    """
+    Read a token from a file path specified in file_env_var, or fall back to env_var.
+
+    Args:
+        env_var: Name of environment variable containing the token directly
+        file_env_var: Name of environment variable containing path to file with token
+
+    Returns:
+        The token string, or empty string if neither is set
+
+    Raises:
+        ValueError: If file path is specified but file cannot be read
+    """
+    # First check if file path is specified
+    file_path = os.getenv(file_env_var, "")
+    if file_path:
+        try:
+            with open(file_path) as f:
+                token = f.read().strip()
+                if not token:
+                    raise ValueError(f"Token file {file_path} is empty")
+                return token
+        except FileNotFoundError as exc:
+            raise ValueError(f"Token file not found: {file_path}") from exc
+        except PermissionError as exc:
+            raise ValueError(f"Permission denied reading token file: {file_path}") from exc
+        except Exception as exc:
+            raise ValueError(f"Error reading token file {file_path}: {exc}") from exc
+
+    # Fall back to environment variable
+    return os.getenv(env_var, "")
+
+
 class Settings:
     # Docker configuration
     DOCKER_HOST: str = os.getenv("DOCKER_HOST", "unix:///var/run/docker.sock")
@@ -31,7 +65,7 @@ class Settings:
     DOCKER_CERT_PATH: str = os.getenv("DOCKER_CERT_PATH", "")
 
     # MCP configuration
-    MCP_ACCESS_TOKEN: str = os.getenv("MCP_ACCESS_TOKEN", "")
+    MCP_ACCESS_TOKEN: str = read_token_from_file_or_env("MCP_ACCESS_TOKEN", "MCP_ACCESS_TOKEN_FILE")
     TOKEN_SCOPES: str = os.getenv("TOKEN_SCOPES", "")
     MCP_TRANSPORT: Literal["http", "sse"] = cast(
         Literal["http", "sse"], os.getenv("MCP_TRANSPORT", "http")
@@ -96,13 +130,13 @@ class Settings:
     def validate(self) -> None:
         """
         Validate runtime-dependent configuration values and normalize enums.
-        
+
         Checks performed:
         - Requires either `MCP_ACCESS_TOKEN` or `TOKEN_SCOPES` to be set.
         - If `TOKEN_SCOPES` is set, it must be valid JSON and parse to a dict.
         - Ensures `MCP_TRANSPORT` is one of "http" or "sse" and casts it to that Literal.
         - Ensures `INTENT_PRECEDENCE` is one of "intent" or "explicit" and casts it to that Literal.
-        
+
         Raises:
             ValueError: If neither `MCP_ACCESS_TOKEN` nor `TOKEN_SCOPES` is set; if `TOKEN_SCOPES`
                 contains invalid JSON or parses to a non-dict; if `MCP_TRANSPORT` or
@@ -134,7 +168,8 @@ class Settings:
         allowed_precedence: tuple[str, ...] = ("intent", "explicit")
         if self.INTENT_PRECEDENCE not in allowed_precedence:
             raise ValueError(
-                f"INTENT_PRECEDENCE must be one of {allowed_precedence}, got {self.INTENT_PRECEDENCE!r}"
+                f"INTENT_PRECEDENCE must be one of {allowed_precedence}, "
+                f"got {self.INTENT_PRECEDENCE!r}"
             )
         self.INTENT_PRECEDENCE = cast(Literal["intent", "explicit"], self.INTENT_PRECEDENCE)
 
