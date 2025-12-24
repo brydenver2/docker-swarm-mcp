@@ -55,7 +55,7 @@ def read_token_from_file_or_env(env_var: str, file_env_var: str) -> str:
             raise ValueError(f"Error reading token file {file_path}: {exc}") from exc
 
     # Fall back to environment variable
-    return os.getenv(env_var, "")
+    return os.getenv(env_var, "").strip()
 
 
 class Settings:
