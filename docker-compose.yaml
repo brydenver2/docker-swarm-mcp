@@ -22,7 +22,7 @@ services:
       - TAILSCALE_STATE_DIR=${TAILSCALE_STATE_DIR:-/var/lib/tailscale}
       - TAILSCALE_TIMEOUT=${TAILSCALE_TIMEOUT:-30}
     volumes:
-      - ~/.docker/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock
       # Optional: Uncomment to enable Tailscale state persistence
       # - tailscale-state:/var/lib/tailscale
     user: "0:0"  # Run as root to access Docker socket (required for full functionality)
