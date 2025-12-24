@@ -42,7 +42,7 @@ def read_token_from_file_or_env(env_var: str, file_env_var: str) -> str:
     file_path = os.getenv(file_env_var, "")
     if file_path:
         try:
-            with open(file_path) as f:
+            with open(file_path, encoding="utf-8") as f:
                 token = f.read().strip()
                 if not token:
                     raise ValueError(f"Token file {file_path} is empty")
