@@ -173,6 +173,32 @@ def test_read_token_from_file_or_env_function(tmp_path, monkeypatch):
     result = read_token_from_file_or_env("TEST_TOKEN", "TEST_TOKEN_FILE")
     assert result == ""
 
+    # Test 4: Env var with whitespace is stripped
+    monkeypatch.setenv("TEST_TOKEN", "  token-with-spaces  \n")
+    result = read_token_from_file_or_env("TEST_TOKEN", "TEST_TOKEN_FILE")
+    assert result == "token-with-spaces"
+
+    # Test 5: File with whitespace is stripped
+    token_file.write_text("  file-token-with-spaces  \n")
+    monkeypatch.setenv("TEST_TOKEN_FILE", str(token_file))
+    result = read_token_from_file_or_env("TEST_TOKEN", "TEST_TOKEN_FILE")
+    assert result == "file-token-with-spaces"
+
+
+def test_env_var_whitespace_stripped(monkeypatch):
+    """Test that whitespace is stripped from environment variable token"""
+    # Set token with leading/trailing whitespace
+    test_token = "token-with-spaces"
+    monkeypatch.delenv("MCP_ACCESS_TOKEN_FILE", raising=False)
+    monkeypatch.setenv("MCP_ACCESS_TOKEN", f"  {test_token}  \n")
+
+    # Reload config
+    from app.core import config
+    reload(config)
+
+    # Token should be stripped of whitespace
+    assert config.settings.MCP_ACCESS_TOKEN == test_token
+
 
 def test_docker_secrets_scenario(monkeypatch, tmp_path):
     """Test realistic Docker secrets scenario with /run/secrets mount"""
