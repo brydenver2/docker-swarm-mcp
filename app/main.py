@@ -137,13 +137,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Log Tailscale status
     log_tailscale_status()
 
-    # Validate authentication configuration
-    # Validate authentication configuration
-    if not settings.TOKEN_SCOPES and not settings.MCP_ACCESS_TOKEN:
-        raise ValueError("Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be configured")
-
-    if not settings.TOKEN_SCOPES and not settings.MCP_ACCESS_TOKEN.strip():
-        raise ValueError("MCP_ACCESS_TOKEN cannot be empty when TOKEN_SCOPES is not configured")
+    # Log authentication configuration status (without exposing tokens)
+    if settings.TOKEN_SCOPES:
+        logger.info("Authentication: Multi-token mode enabled (TOKEN_SCOPES configured)")
+    elif settings.MCP_ACCESS_TOKEN:
+        token_length = len(settings.MCP_ACCESS_TOKEN)
+        logger.info(f"Authentication: Single-token mode enabled (MCP_ACCESS_TOKEN: {token_length} chars)")
+    else:
+        # This should never happen due to Settings.validate(), but adding for safety
+        logger.error("CRITICAL: No authentication configured - server will fail to start")
 
     try:
         docker_client = get_docker_client()

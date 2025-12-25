@@ -71,6 +71,10 @@ security = HTTPBearerOrQuery()
 async def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> str:
     """Verify token without scope parsing (for backward compatibility)"""
     if not settings.MCP_ACCESS_TOKEN:
+        logger.error(
+            "Token verification failed: MCP_ACCESS_TOKEN not configured on server",
+            extra={"issue": "server_misconfiguration"}
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="MCP_ACCESS_TOKEN not configured"
@@ -82,6 +86,15 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
     )
 
     if not token_valid:
+        # Log diagnostic information without exposing token values
+        logger.warning(
+            "Authentication failed: Invalid token provided",
+            extra={
+                "token_length_received": len(credentials.credentials),
+                "token_length_expected": len(settings.MCP_ACCESS_TOKEN),
+                "hint": "Verify client is using the same token value as MCP_ACCESS_TOKEN"
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing access token"
@@ -128,6 +141,10 @@ async def verify_token_with_scopes(
 
     # Fallback to single token validation
     if not settings.MCP_ACCESS_TOKEN:
+        logger.error(
+            "Token verification failed: Neither TOKEN_SCOPES nor MCP_ACCESS_TOKEN configured",
+            extra={"issue": "server_misconfiguration"}
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="MCP_ACCESS_TOKEN or TOKEN_SCOPES not configured"
@@ -136,6 +153,15 @@ async def verify_token_with_scopes(
     token_valid = hmac.compare_digest(token, settings.MCP_ACCESS_TOKEN)
 
     if not token_valid:
+        # Log diagnostic information without exposing token values
+        logger.warning(
+            "Authentication failed: Invalid token provided",
+            extra={
+                "token_length_received": len(token),
+                "token_length_expected": len(settings.MCP_ACCESS_TOKEN),
+                "hint": "Verify client is using the same token value as MCP_ACCESS_TOKEN"
+            }
+        )
         # Always return 401 for invalid tokens to avoid consuming request body
         # which would prevent FastAPI from parsing the JSONRPCRequest parameter
         raise HTTPException(
