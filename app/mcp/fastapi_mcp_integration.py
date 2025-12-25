@@ -14,6 +14,7 @@ from typing import Any
 
 import jsonschema
 from fastapi import APIRouter, Depends, Request
+from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -818,6 +819,26 @@ class DynamicToolGatingMCP:
                     JSONRPCError.INTERNAL_ERROR,
                     f"Tool execution timeout after {timeout}s",
                     {"timeout": timeout, "operation_type": "docker_op"}
+                )
+            )
+        except HTTPException as e:
+            logger.error(
+                f"Service execution failed for '{tool_name}'",
+                extra={
+                    "request_id": request_id,
+                    "session_id": session_id,
+                    "tool": tool_name,
+                    "status_code": e.status_code,
+                    "error": e.detail
+                },
+                exc_info=True
+            )
+            return JSONRPCResponse(
+                id=jsonrpc_id,
+                error=JSONRPCError.create_error(
+                    JSONRPCError.INTERNAL_ERROR,
+                    e.detail,
+                    {"status_code": e.status_code}
                 )
             )
         except Exception as e:
