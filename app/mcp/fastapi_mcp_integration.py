@@ -822,14 +822,16 @@ class DynamicToolGatingMCP:
                 )
             )
         except HTTPException as e:
+            # Extract error details from HTTPException
+            error_message = e.detail if e.detail else f"HTTP {e.status_code} error"
             logger.error(
-                f"Service execution failed for '{tool_name}'",
+                f"Service execution failed for '{tool_name}': {error_message}",
                 extra={
                     "request_id": request_id,
                     "session_id": session_id,
                     "tool": tool_name,
                     "status_code": e.status_code,
-                    "error": e.detail
+                    "error": error_message
                 },
                 exc_info=True
             )
@@ -837,7 +839,7 @@ class DynamicToolGatingMCP:
                 id=jsonrpc_id,
                 error=JSONRPCError.create_error(
                     JSONRPCError.INTERNAL_ERROR,
-                    e.detail,
+                    error_message,
                     {"status_code": e.status_code}
                 )
             )

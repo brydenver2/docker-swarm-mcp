@@ -7,6 +7,12 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, Optional
 
+try:
+    from fastapi.exceptions import HTTPException
+    HAS_FASTAPI = True
+except ImportError:
+    HAS_FASTAPI = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -158,14 +164,19 @@ async def retry_with_backoff(
 
         except Exception as e:
             # Non-retryable exception, fail immediately
+            # Handle HTTPException specially to extract meaningful error details
+            error_msg = str(e)
+            if HAS_FASTAPI and isinstance(e, HTTPException):
+                error_msg = e.detail if e.detail else f"HTTP {e.status_code} error"
+            
             logger.error(
-                f"{operation_name} failed with non-retryable error: {str(e)}",
+                f"{operation_name} failed with non-retryable error: {error_msg}",
                 extra={
                     "operation": operation_name,
                     "attempt": attempt + 1,
                     "error_code": type(e).__name__,
                     "retry": False,
-                    "error": str(e)
+                    "error": error_msg
                 }
             )
             raise
