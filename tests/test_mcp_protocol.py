@@ -1081,3 +1081,97 @@ class TestIntentBasedToolDiscovery:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+class TestPathParameterSchemas:
+    """Test that tools with path parameters have proper inputSchema"""
+
+    def test_get_logs_input_schema(self, test_client_with_mock):
+        """Verify get-logs tool has proper inputSchema with id, tail, since, follow parameters"""
+        response = test_client_with_mock.post(
+            "/mcp/",
+            json={
+                "jsonrpc": "2.0",
+                "method": "tools/list",
+                "params": {"task_type": "container-ops"},
+                "id": 1
+            },
+            headers={"Authorization": f"Bearer {TEST_TOKEN}"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "result" in data
+        assert "tools" in data["result"]
+        
+        # Find get-logs tool
+        get_logs_tool = None
+        for tool in data["result"]["tools"]:
+            if tool["name"] == "get-logs":
+                get_logs_tool = tool
+                break
+        
+        assert get_logs_tool is not None, "get-logs tool not found in tools/list"
+        
+        # Verify inputSchema exists and is properly structured
+        assert "inputSchema" in get_logs_tool
+        input_schema = get_logs_tool["inputSchema"]
+        
+        assert input_schema["type"] == "object"
+        assert "properties" in input_schema
+        assert "required" in input_schema
+        
+        # Verify all expected properties are present
+        assert "id" in input_schema["properties"], "Missing 'id' in properties"
+        assert "tail" in input_schema["properties"], "Missing 'tail' in properties"
+        assert "since" in input_schema["properties"], "Missing 'since' in properties"
+        assert "follow" in input_schema["properties"], "Missing 'follow' in properties"
+        
+        # Verify id is required
+        assert "id" in input_schema["required"], "'id' should be required"
+        
+        # Verify property types and defaults
+        assert input_schema["properties"]["id"]["type"] == "string"
+        assert input_schema["properties"]["tail"]["type"] == "integer"
+        assert input_schema["properties"]["tail"]["default"] == 100
+        assert input_schema["properties"]["follow"]["type"] == "boolean"
+        assert input_schema["properties"]["follow"]["default"] is False
+
+    def test_container_tools_input_schema(self, test_client_with_mock):
+        """Verify container operation tools have proper inputSchema with id parameter"""
+        response = test_client_with_mock.post(
+            "/mcp/",
+            json={
+                "jsonrpc": "2.0",
+                "method": "tools/list",
+                "params": {"task_type": "container-ops"},
+                "id": 1
+            },
+            headers={"Authorization": f"Bearer {TEST_TOKEN}"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        tools_by_name = {tool["name"]: tool for tool in data["result"]["tools"]}
+        
+        # Test start-container
+        start_container = tools_by_name.get("start-container")
+        assert start_container is not None
+        assert "id" in start_container["inputSchema"]["properties"]
+        assert "id" in start_container["inputSchema"]["required"]
+        assert start_container["inputSchema"]["properties"]["id"]["type"] == "string"
+        
+        # Test stop-container (has optional timeout parameter)
+        stop_container = tools_by_name.get("stop-container")
+        assert stop_container is not None
+        assert "id" in stop_container["inputSchema"]["properties"]
+        assert "timeout" in stop_container["inputSchema"]["properties"]
+        assert "id" in stop_container["inputSchema"]["required"]
+        assert stop_container["inputSchema"]["properties"]["timeout"]["default"] == 10
+        
+        # Test remove-container (has optional force parameter)
+        remove_container = tools_by_name.get("remove-container")
+        assert remove_container is not None
+        assert "id" in remove_container["inputSchema"]["properties"]
+        assert "force" in remove_container["inputSchema"]["properties"]
+        assert "id" in remove_container["inputSchema"]["required"]
+        assert remove_container["inputSchema"]["properties"]["force"]["default"] is False
