@@ -142,10 +142,16 @@ class Settings:
                 contains invalid JSON or parses to a non-dict; if `MCP_TRANSPORT` or
                 `INTENT_PRECEDENCE` contain invalid values.
         """
-        if not self.MCP_ACCESS_TOKEN and not self.TOKEN_SCOPES:
+        # Validate authentication configuration
+        has_token = bool(self.MCP_ACCESS_TOKEN and self.MCP_ACCESS_TOKEN.strip())
+        has_token_scopes = bool(self.TOKEN_SCOPES and self.TOKEN_SCOPES.strip())
+        
+        if not has_token and not has_token_scopes:
             raise ValueError(
-                "Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be set. "
-                "Set MCP_ACCESS_TOKEN for single-token auth or TOKEN_SCOPES for multi-token auth"
+                "Security requires either MCP_ACCESS_TOKEN or TOKEN_SCOPES to be configured.\n"
+                "HINT: Create a .env file with MCP_ACCESS_TOKEN=your-secure-token\n"
+                "      or set the environment variable before starting the server.\n"
+                "Generate a secure token with: openssl rand -hex 32"
             )
 
         if self.TOKEN_SCOPES:
