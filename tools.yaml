@@ -90,7 +90,14 @@ tools:
     description: Start a Docker container
     method: POST
     path: /containers/{id}/start
-    request_schema: null
+    request_schema:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Container ID or name
     response_schema:
       type: object
     task_types:
@@ -101,7 +108,18 @@ tools:
     description: Stop a Docker container
     method: POST
     path: /containers/{id}/stop
-    request_schema: null
+    request_schema:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Container ID or name
+        timeout:
+          type: integer
+          description: Seconds to wait before killing
+          default: 10
     response_schema:
       type: object
     task_types:
@@ -112,7 +130,18 @@ tools:
     description: Remove a Docker container
     method: DELETE
     path: /containers/{id}
-    request_schema: null
+    request_schema:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Container ID or name
+        force:
+          type: boolean
+          description: Force removal of running container
+          default: false
     response_schema:
       type: object
     task_types:
@@ -125,7 +154,25 @@ tools:
     description: Get Docker container logs
     method: GET
     path: /containers/{id}/logs
-    request_schema: null
+    request_schema:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Container ID or name
+        tail:
+          type: integer
+          description: Number of lines from end of logs
+          default: 100
+        since:
+          type: string
+          description: RFC3339 timestamp to filter logs
+        follow:
+          type: boolean
+          description: Stream logs (SSE transport only)
+          default: false
     response_schema:
       type: string
     task_types:
@@ -193,7 +240,14 @@ tools:
     description: Remove a Docker Compose stack
     method: DELETE
     path: /stacks/{project_name}
-    request_schema: null
+    request_schema:
+      type: object
+      required:
+        - project_name
+      properties:
+        project_name:
+          type: string
+          description: Name of the Docker Compose stack to remove
     response_schema:
       type: object
     task_types:
@@ -265,7 +319,14 @@ tools:
     description: Remove a Docker Swarm service
     method: DELETE
     path: /services/{name}
-    request_schema: null
+    request_schema:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the Docker Swarm service to remove
     response_schema:
       type: object
     task_types:
@@ -337,7 +398,14 @@ tools:
     description: Remove a Docker network
     method: DELETE
     path: /networks/{id}
-    request_schema: null
+    request_schema:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Network ID or name to remove
     response_schema:
       type: object
     task_types:
@@ -405,7 +473,14 @@ tools:
     description: Remove a Docker volume
     method: DELETE
     path: /volumes/{name}
-    request_schema: null
+    request_schema:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the Docker volume to remove
     response_schema:
       type: object
     task_types:
