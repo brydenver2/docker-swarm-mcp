@@ -384,26 +384,45 @@ class DockerClient:
 
     def get_logs(self, container_id: str, tail: int = 100, since: Optional[str] = None, follow: bool = False) -> str:
         """
-        Retrieve the logs of a container as a UTF-8 string.
+        Retrieve the logs of a container or service as a UTF-8 string.
+        
+        In Docker Swarm mode, if a container is not found locally, attempts to retrieve logs
+        from a service with the given name. This allows fetching logs from containers running
+        on other Swarm nodes.
         
         Parameters:
-            container_id (str): ID or name of the container to fetch logs from.
+            container_id (str): ID or name of the container/service to fetch logs from.
             tail (int): Number of lines from the end of the logs to return (default 100).
             since (Optional[str]): Return logs since this timestamp (RFC3339 or seconds) or None to ignore.
             follow (bool): If True, stream logs; otherwise return a snapshot (streaming is controlled by the Docker client).
         
         Returns:
-            str: Container logs decoded as a UTF-8 string.
+            str: Container or service logs decoded as a UTF-8 string.
         
         Raises:
-            HTTPException: 404 if the container does not exist; 424 for Docker API errors; 500 for other Docker client errors.
+            HTTPException: 404 if neither container nor service exists; 424 for Docker API errors; 500 for other Docker client errors.
         """
         try:
+            # First, try to get logs from a container (local node)
             container = self.client.containers.get(container_id)
             logs = container.logs(tail=tail, since=since, follow=follow, stream=False)
             return logs.decode("utf-8") if isinstance(logs, bytes) else logs
         except NotFound:
-            raise HTTPException(status_code=404, detail="Container not found")
+            # If container not found locally and we're in swarm mode, try to get service logs
+            if self._is_swarm():
+                try:
+                    service = self.client.services.get(container_id)
+                    # Service logs return bytes when stream=False
+                    logs = service.logs(tail=tail, since=since, follow=follow, is_tty=False, stdout=True, stderr=True)
+                    # Service logs are returned as bytes
+                    return logs.decode("utf-8") if isinstance(logs, bytes) else logs
+                except NotFound:
+                    raise HTTPException(status_code=404, detail=f"Container or service '{container_id}' not found")
+                except APIError as e:
+                    logger.error(f"Docker API error getting service logs: {e}")
+                    raise HTTPException(status_code=424, detail=f"Docker API error: {str(e)}")
+            else:
+                raise HTTPException(status_code=404, detail=f"Container '{container_id}' not found")
         except APIError as e:
             logger.error(f"Docker API error getting logs: {e}")
             raise HTTPException(status_code=424, detail=f"Docker API error: {str(e)}")

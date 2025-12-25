@@ -151,7 +151,7 @@ tools:
     priority: 0
 
   - name: get-logs
-    description: Get Docker container logs
+    description: Get Docker container or service logs. In Swarm mode, can retrieve logs from services across all nodes.
     method: GET
     path: /containers/{id}/logs
     request_schema:
@@ -161,7 +161,7 @@ tools:
       properties:
         id:
           type: string
-          description: Container ID or name
+          description: Container ID, container name, or service name (Swarm mode)
         tail:
           type: integer
           description: Number of lines from end of logs
