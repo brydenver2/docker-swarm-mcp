@@ -186,6 +186,17 @@ start_uvicorn() {
 main() {
     log "Docker Swarm MCP Server starting..."
     log "Tailscale enabled: ${TAILSCALE_ENABLED}"
+
+    # Resolve MCP access token (supports *_FILE for secrets)
+    local mcp_access_token
+    mcp_access_token=$(get_config_value "MCP_ACCESS_TOKEN")
+
+    if [[ -z "${mcp_access_token}" ]]; then
+        error_exit "MCP_ACCESS_TOKEN (or MCP_ACCESS_TOKEN_FILE) must be provided"
+    fi
+
+    export MCP_ACCESS_TOKEN="${mcp_access_token}"
+    log "MCP access token resolved via environment/secret"
     
     if [[ "${TAILSCALE_ENABLED}" == "true" ]]; then
         # Validate configuration
