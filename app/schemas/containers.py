@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ContainerCreateRequest(BaseModel):
@@ -12,8 +12,8 @@ class ContainerCreateRequest(BaseModel):
     volumes: Optional[dict[str, dict[str, str]]] = Field(None, description="Volume mounts")
     restart_policy: Optional[str] = Field("no", description="Restart policy")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "image": "nginx:alpine",
                 "name": "web-server",
@@ -22,6 +22,7 @@ class ContainerCreateRequest(BaseModel):
                 "restart_policy": "always"
             }
         }
+    )
 
 
 class ContainerResponse(BaseModel):
@@ -31,8 +32,8 @@ class ContainerResponse(BaseModel):
     image: str = Field(..., description="Image name")
     created: datetime = Field(..., description="Creation timestamp")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "e90e34656806",
                 "name": "web-server",
@@ -41,6 +42,7 @@ class ContainerResponse(BaseModel):
                 "created": "2025-10-07T12:34:56Z"
             }
         }
+    )
 
 
 class PortMapping(BaseModel):
@@ -52,8 +54,8 @@ class PortMapping(BaseModel):
 class ContainerSummary(ContainerResponse):
     ports: Optional[list[PortMapping]] = Field(None, description="Port mappings")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "e90e34656806",
                 "name": "web-server",
@@ -65,3 +67,4 @@ class ContainerSummary(ContainerResponse):
                 ]
             }
         }
+    )

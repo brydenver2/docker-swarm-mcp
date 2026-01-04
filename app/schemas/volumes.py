@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class VolumeCreateRequest(BaseModel):
@@ -10,8 +10,8 @@ class VolumeCreateRequest(BaseModel):
     options: Optional[dict[str, str]] = Field(None, description="Driver-specific options")
     labels: Optional[dict[str, str]] = Field(None, description="Volume metadata labels")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "my-volume",
                 "driver": "local",
@@ -21,6 +21,7 @@ class VolumeCreateRequest(BaseModel):
                 }
             }
         }
+    )
 
 
 class VolumeResponse(BaseModel):
@@ -29,8 +30,8 @@ class VolumeResponse(BaseModel):
     mountpoint: str = Field(..., description="Host path where volume is mounted")
     created: datetime = Field(..., description="Creation timestamp")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "my-volume",
                 "driver": "local",
@@ -38,3 +39,4 @@ class VolumeResponse(BaseModel):
                 "created": "2025-10-07T12:34:56Z"
             }
         }
+    )

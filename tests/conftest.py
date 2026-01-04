@@ -2,10 +2,11 @@
 Pytest configuration and fixtures for docker-swarm-mcp tests
 """
 
+import asyncio
 import os
 
+import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 # Set environment variables before importing app
 os.environ.setdefault("MCP_ACCESS_TOKEN", "test-token-123")
@@ -13,6 +14,47 @@ os.environ.setdefault("LOG_LEVEL", "DEBUG")
 os.environ.setdefault("EXPOSE_ENDPOINTS_IN_HEALTHZ", "true")
 
 from app.main import app
+
+
+class SyncASGITestClient:
+    """Synchronous facade over httpx.AsyncClient using ASGITransport."""
+
+    def __init__(self, app):
+        self._transport = httpx.ASGITransport(app=app)
+        self._client = httpx.AsyncClient(
+            transport=self._transport,
+            base_url="http://testserver"
+        )
+
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def request(self, method: str, url: str, **kwargs):
+        return self._run(self._client.request(method, url, **kwargs))
+
+    def get(self, url: str, **kwargs):
+        return self.request("GET", url, **kwargs)
+
+    def post(self, url: str, **kwargs):
+        return self.request("POST", url, **kwargs)
+
+    def put(self, url: str, **kwargs):
+        return self.request("PUT", url, **kwargs)
+
+    def patch(self, url: str, **kwargs):
+        return self.request("PATCH", url, **kwargs)
+
+    def delete(self, url: str, **kwargs):
+        return self.request("DELETE", url, **kwargs)
+
+    def options(self, url: str, **kwargs):
+        return self.request("OPTIONS", url, **kwargs)
+
+    def head(self, url: str, **kwargs):
+        return self.request("HEAD", url, **kwargs)
+
+    def close(self):
+        self._run(self._client.aclose())
 
 
 class MockDockerClient:
@@ -377,12 +419,12 @@ def mock_docker_client():
 @pytest.fixture
 def test_client_with_mock(mock_docker_client, monkeypatch):
     """
-    Provide a TestClient for the FastAPI app wired with a mocked Docker client and initialized MCP components.
+    Provide an httpx-powered client for the FastAPI app wired with a mocked Docker client and initialized MCP components.
     
     This fixture patches app.docker_client.get_docker_client to return the provided mock, injects the mock into app.state.docker_client, and initializes tool_registry, tool_gate_controller, intent_classifier, and mcp_server in app.state using any available filter-config.json values (with safe fallbacks).
     
     Returns:
-        TestClient: A TestClient wrapping the FastAPI app configured to use the mocked Docker client and initialized MCP components.
+        SyncASGITestClient: HTTP client configured to use the mocked Docker client and initialized MCP components.
     """
     # Stub get_docker_client before constructing TestClient
     monkeypatch.setattr('app.docker_client.get_docker_client', lambda: mock_docker_client)
@@ -446,7 +488,11 @@ def test_client_with_mock(mock_docker_client, monkeypatch):
     app.state.mcp_server = mcp_server
     app.state.intent_classifier = intent_classifier
 
-    return TestClient(app)
+    client = SyncASGITestClient(app)
+    try:
+        yield client
+    finally:
+        client.close()
 
 
 @pytest.fixture(autouse=True)

@@ -34,6 +34,7 @@ TOOL_SCHEMA_MAPPING = {
     "remove-compose": (None, dict),
     # Services
     "list-services": (None, list),  # List of ServiceResponse
+    "service-logs": (None, str),
     "scale-service": (services.ServiceScaleRequest, services.ServiceResponse),
     "remove-service": (None, dict),
     # Networks

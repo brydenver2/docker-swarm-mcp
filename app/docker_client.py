@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import docker
@@ -88,6 +88,39 @@ class DockerClient:
             raise RuntimeError("Docker engine unreachable") from e
 
         self._is_swarm_cache: bool | None = None
+        self._service_name_cache: dict[str, bool] = {}
+
+    @staticmethod
+    def _normalize_since(since: Any) -> int | None:
+        """Convert incoming since values (ISO string or seconds) to epoch seconds."""
+        if since in (None, ""):
+            return None
+
+        if isinstance(since, (int, float)):
+            return int(since)
+
+        if isinstance(since, str):
+            trimmed = since.strip()
+            if trimmed == "":
+                return None
+            # Accept numeric strings directly
+            try:
+                return int(float(trimmed))
+            except ValueError:
+                pass
+
+            iso_candidate = trimmed.replace("Z", "+00:00") if trimmed.endswith("Z") else trimmed
+            try:
+                parsed = datetime.fromisoformat(iso_candidate)
+            except ValueError as exc:  # pragma: no cover - defensive
+                raise HTTPException(status_code=400, detail=f"Invalid since value: {since}") from exc
+
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+
+            return int(parsed.timestamp())
+
+        raise HTTPException(status_code=400, detail=f"Unsupported since value type: {type(since).__name__}")
 
     def _is_swarm(self) -> bool:
         """
@@ -400,9 +433,18 @@ class DockerClient:
         """
         try:
             container = self.client.containers.get(container_id)
-            logs = container.logs(tail=tail, since=since, follow=follow, stream=False)
+            normalized_since = self._normalize_since(since)
+            logs = container.logs(tail=tail, since=normalized_since, follow=follow, stream=False)
             return logs.decode("utf-8") if isinstance(logs, bytes) else logs
         except NotFound:
+            if self._looks_like_service(container_id):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Resource appears to be a Swarm service. Use /services/{name}/logs or the service-logs tool "
+                        "to retrieve Swarm service logs."
+                    )
+                )
             raise HTTPException(status_code=404, detail="Container not found")
         except APIError as e:
             logger.error(f"Docker API error getting logs: {e}")
@@ -410,6 +452,44 @@ class DockerClient:
         except DockerException as e:
             logger.error(f"Docker error getting logs: {e}")
             raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
+
+    def get_service_logs(self, service_name: str, tail: int = 100, since: Optional[str] = None, follow: bool = False) -> str:
+        """Retrieve the logs for a Docker Swarm service."""
+        try:
+            service = self.client.services.get(service_name)
+            normalized_since = self._normalize_since(since)
+            logs = service.logs(
+                stdout=True,
+                stderr=True,
+                tail=tail,
+                since=normalized_since,
+                follow=follow,
+                timestamps=True,
+            )
+            return logs.decode("utf-8") if isinstance(logs, bytes) else logs
+        except NotFound:
+            raise HTTPException(status_code=404, detail="Service not found")
+        except APIError as e:
+            logger.error(f"Docker API error getting service logs: {e}")
+            raise HTTPException(status_code=424, detail=f"Docker API error: {str(e)}")
+        except DockerException as e:
+            logger.error(f"Docker error getting service logs: {e}")
+            raise HTTPException(status_code=500, detail=f"Docker error: {str(e)}")
+
+    def _looks_like_service(self, identifier: str) -> bool:
+        """Heuristically determine if the identifier matches an existing swarm service."""
+        cached = self._service_name_cache.get(identifier)
+        if cached is not None:
+            return cached
+
+        try:
+            services = self.client.services.list(filters={"name": identifier})
+            is_service = bool(services)
+        except DockerException:
+            is_service = False
+
+        self._service_name_cache[identifier] = is_service
+        return is_service
 
     def deploy_compose(self, project_name: str, compose_yaml: str, force_recreate: bool = False) -> dict[str, Any]:
         """
@@ -492,11 +572,29 @@ class DockerClient:
                             env_dict[k] = v
                     env = env_dict
 
+                labels = service_config.get("labels") or {}
+                if isinstance(labels, list):
+                    label_dict = {}
+                    for item in labels:
+                        if "=" in item:
+                            k, v = item.split("=", 1)
+                            label_dict[k.strip()] = v.strip()
+                    labels = label_dict
+                elif not isinstance(labels, dict):
+                    labels = {}
+
+                stack_labels = {
+                    "com.docker.stack.namespace": project_name,
+                    "com.docker.stack.service.name": service_name,
+                    "com.docker.stack.image": image,
+                }
+                labels.update(stack_labels)
+
                 service = self.client.services.create(
                     image=image,
                     name=full_service_name,
                     env=env,
-                    labels={"com.docker.stack.namespace": project_name},
+                    labels=labels,
                     mode=ServiceMode("replicated", replicas=service_config.get("replicas", 1))
                 )
                 created_services.append(full_service_name)

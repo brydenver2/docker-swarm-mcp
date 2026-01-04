@@ -41,11 +41,34 @@ class HTTPBearerOrQuery(HTTPBearer):
         Raises:
             HTTPException: Raised with status 403 and WWW-Authenticate: "Bearer" when no valid token is present.
         """
-        authorization = request.headers.get("Authorization")
-        scheme, credentials = get_authorization_scheme_param(authorization)
+        auth_headers: list[str] = []
+        # Prefer raw header order from ASGI scope to avoid comma-collapsing
+        for name, value in request.scope.get("headers", []):
+            if name.lower() == b"authorization" and value is not None:
+                try:
+                    auth_headers.append(value.decode("latin-1"))
+                except UnicodeDecodeError:
+                    # Skip undecodable values
+                    continue
 
-        if scheme and scheme.lower() == "bearer" and credentials:
-            return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
+        if not auth_headers:
+            header_accessor = getattr(request.headers, "getlist", None)
+            if callable(header_accessor):
+                auth_headers = header_accessor("Authorization")
+
+        if not auth_headers:
+            # Starlette's Headers.getlist may not exist in older versions; fall back to single get
+            single_header = request.headers.get("Authorization")
+            if single_header is not None:
+                auth_headers = [single_header]
+
+        for authorization in auth_headers:
+            candidates = [segment.strip() for segment in authorization.split(",") if segment.strip()]
+            for candidate in candidates:
+                scheme, credentials = get_authorization_scheme_param(candidate)
+
+                if scheme and scheme.lower() == "bearer" and credentials:
+                    return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
 
         # Fallback to custom header for clients that cannot set Authorization
         access_token = request.headers.get("X-Access-Token")

@@ -31,3 +31,20 @@ async def remove_service(docker_client: DockerClient, params: dict[str, Any]) ->
         raise ValueError("Missing required parameter: name")
     docker_client.remove_service(service_name)
     return {}
+
+
+@retry_read(operation_name="get_service_logs")
+async def get_service_logs(docker_client: DockerClient, params: dict[str, Any]) -> str:
+    """Retrieve logs for a Docker Swarm service."""
+    service_name = params.get("name")
+    tail = params.get("tail", 100)
+    since = params.get("since")
+    follow = params.get("follow", False)
+
+    if not service_name:
+        raise ValueError("Missing required parameter: name")
+
+    # Same retry semantics as container logs: only retry when not following
+    if follow:
+        return docker_client.get_service_logs(service_name, tail=tail, since=since, follow=follow)
+    return docker_client.get_service_logs(service_name, tail=tail, since=since, follow=False)

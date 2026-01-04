@@ -168,7 +168,7 @@ tools:
           default: 100
         since:
           type: string
-          description: RFC3339 timestamp to filter logs
+          description: RFC3339 timestamp or Unix seconds to filter logs
         follow:
           type: boolean
           description: Stream logs (SSE transport only)
@@ -254,6 +254,35 @@ tools:
       - compose-ops
     required_scopes:
       - admin
+    priority: 0
+
+  - name: service-logs
+    description: Get Docker Swarm service logs
+    method: GET
+    path: /services/{name}/logs
+    request_schema:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Swarm service name
+        tail:
+          type: integer
+          description: Number of lines from end of logs
+          default: 100
+        since:
+          type: string
+          description: RFC3339 timestamp or Unix seconds to filter logs
+        follow:
+          type: boolean
+          description: Stream logs (SSE transport only)
+          default: false
+    response_schema:
+      type: string
+    task_types:
+      - service-ops
     priority: 0
 
   - name: list-services

@@ -127,6 +127,7 @@ class DynamicToolGatingMCP:
             "list-services": service_service.list_services,
             "scale-service": service_service.scale_service,
             "remove-service": service_service.remove_service,
+            "service-logs": service_service.get_service_logs,
 
             # Network operations
             "list-networks": network_service.list_networks,

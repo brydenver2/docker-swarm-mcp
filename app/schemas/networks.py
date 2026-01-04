@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.ipam import IPAM
 
@@ -12,8 +12,8 @@ class NetworkCreateRequest(BaseModel):
     ipam: Optional[IPAM] = Field(None, description="IP address management configuration")
     options: Optional[dict[str, str]] = Field(None, description="Driver-specific options")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "my-network",
                 "driver": "bridge",
@@ -28,6 +28,7 @@ class NetworkCreateRequest(BaseModel):
                 }
             }
         }
+    )
 
 
 class NetworkResponse(BaseModel):
@@ -37,8 +38,8 @@ class NetworkResponse(BaseModel):
     scope: str = Field(..., description="Network scope (local, swarm, global)")
     created: datetime = Field(..., description="Creation timestamp")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "a1b2c3d4e5f6",
                 "name": "my-network",
@@ -47,3 +48,4 @@ class NetworkResponse(BaseModel):
                 "created": "2025-10-07T12:34:56Z"
             }
         }
+    )

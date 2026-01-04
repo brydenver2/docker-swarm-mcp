@@ -456,6 +456,10 @@ Response: Uses `discover-tools` to explain the 6 categories
 - Manage service constraints and preferences
 ```
 
+### Logging That Matches Your Target
+- **Containers:** `get-logs` (`GET /containers/{id}/logs`) now accepts either RFC3339 timestamps or raw Unix seconds for the `since` filter so you can align logs with incidents precisely.
+- **Swarm services:** `service-logs` (`GET /services/{name}/logs`) aggregates logs from every task replica, giving you the same view as `docker service logs` without leaving your MCP client.
+
 ### Stack Deployments
 ```bash
 # Your AI can now:

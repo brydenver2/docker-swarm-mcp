@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Introduced `pytest-asyncio` to the developer toolchain and set `asyncio_mode=auto` so coroutine-based tests execute natively under pytest.
+- Added a Swarm-aware `service-logs` tool/endpoint so MCP clients can stream aggregated task logs without falling back to `docker service logs` manually.
 
 ### Changed
 
@@ -17,16 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Derived deterministic session identifiers from presented auth tokens when `X-Session-ID` is absent, improving tool-gating consistency.
 - Tuned meta intent keyword mapping to avoid false positives from generic “query” terms during tool discovery.
 - Reworked the MCP endpoint integration tests to use assertions/skip logic instead of returning raw responses, eliminating pytest return warnings and clarifying expectations.
+- Migrated all Pydantic schema models to use `model_config = ConfigDict(...)`, removing the deprecated class-based `Config` pattern and silencing upcoming v2 deprecation warnings.
+- Normalized `since` parsing in `get-logs` to accept either RFC3339 timestamps or Unix seconds and return clearer guidance when clients accidentally pass service IDs to the container log endpoint.
 
 ### Fixed
 
 - Adjusted X-Access-Token authentication to emit 401 vs 403 responses based on the JSON-RPC method being invoked, aligning with test expectations.
 - Expanded PEM/certificate redaction so shorter secrets and `_pem` keys are consistently masked in structured logs.
 - Added a broad exception guard during Docker client bootstrap to surface non-DockerException failures as “engine unreachable” runtime errors.
+- Swarm stack deployments now stamp the standard `com.docker.stack.*` labels on every service (namespace, service name, image), ensuring `docker stack ls` shows stacks created through the MCP endpoint.
 
 ### Testing
 
 - Updated retry behavior tests to assert the corrected exponential backoff calculation under the asyncio plugin.
+- Swapped the FastAPI `TestClient` fixture for an `httpx.AsyncClient` + `ASGITransport` harness to align with the new transport API and eliminate the deprecated `app=` shortcut warnings during pytest runs.
 
 ## [0.5.0] - 2025-10-14
 
